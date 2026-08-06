@@ -1,1 +1,322 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: FlowGuard serverless infrastructure
 
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+  FrontendOrigin:
+    Type: String
+    Default: http://localhost:5173
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    MemorySize: 256
+    Timeout: 10
+    Tracing: Active
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref FinancialRecordsTable
+
+Resources:
+  FinancialRecordsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub flowguard-financial-records-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Application
+          Value: FlowGuard
+        - Key: Environment
+          Value: !Ref Environment
+
+  FlowGuardUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub flowguard-users-${Environment}
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+
+  FlowGuardUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub flowguard-web-${Environment}
+      UserPoolId: !Ref FlowGuardUserPool
+      GenerateSecret: false
+      EnableTokenRevocation: true
+      PreventUserExistenceErrors: ENABLED
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  FlowGuardHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref FrontendOrigin
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowCredentials: true
+      Auth:
+        DefaultAuthorizer: CognitoJwtAuthorizer
+        Authorizers:
+          CognitoJwtAuthorizer:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${FlowGuardUserPool}
+              audience:
+                - !Ref FlowGuardUserPoolClient
+
+  ExpenseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.expenses.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        CreateExpense:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: POST
+            Path: /expenses
+            PayloadFormatVersion: "2.0"
+        ListExpenses:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /expenses
+            PayloadFormatVersion: "2.0"
+        GetExpense:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /expenses/{expenseId}
+            PayloadFormatVersion: "2.0"
+        UpdateExpense:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: PUT
+            Path: /expenses/{expenseId}
+            PayloadFormatVersion: "2.0"
+        DeleteExpense:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: DELETE
+            Path: /expenses/{expenseId}
+            PayloadFormatVersion: "2.0"
+
+  IncomeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.income.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        CreateIncome:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: POST
+            Path: /income
+            PayloadFormatVersion: "2.0"
+        ListIncome:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /income
+            PayloadFormatVersion: "2.0"
+        GetIncome:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /income/{incomeId}
+            PayloadFormatVersion: "2.0"
+        UpdateIncome:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: PUT
+            Path: /income/{incomeId}
+            PayloadFormatVersion: "2.0"
+        DeleteIncome:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: DELETE
+            Path: /income/{incomeId}
+            PayloadFormatVersion: "2.0"
+
+  CommitmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.commitments.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        CreateCommitment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: POST
+            Path: /commitments
+            PayloadFormatVersion: "2.0"
+        ListCommitments:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /commitments
+            PayloadFormatVersion: "2.0"
+        GetCommitment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /commitments/{commitmentId}
+            PayloadFormatVersion: "2.0"
+        UpdateCommitment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: PUT
+            Path: /commitments/{commitmentId}
+            PayloadFormatVersion: "2.0"
+        DeleteCommitment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: DELETE
+            Path: /commitments/{commitmentId}
+            PayloadFormatVersion: "2.0"
+
+  ForecastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.forecast.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        GetForecast:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /forecast
+            PayloadFormatVersion: "2.0"
+
+Outputs:
+  FinancialRecordsTableName:
+    Description: DynamoDB table containing FlowGuard financial records
+    Value: !Ref FinancialRecordsTable
+  FinancialRecordsTableArn:
+    Description: ARN of the FlowGuard financial records table
+    Value: !GetAtt FinancialRecordsTable.Arn
+  HttpApiUrl:
+    Description: Base URL of the FlowGuard HTTP API
+    Value: !Sub https://${FlowGuardHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${Environment}
+  UserPoolId:
+    Description: Cognito User Pool identifier
+    Value: !Ref FlowGuardUserPool
+  UserPoolClientId:
+    Description: Cognito application client identifier
+    Value: !Ref FlowGuardUserPoolClient
