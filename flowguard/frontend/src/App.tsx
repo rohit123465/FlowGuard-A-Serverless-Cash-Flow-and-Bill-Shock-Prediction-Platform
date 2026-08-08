@@ -5,6 +5,9 @@ import { ProtectedRoute } from "./features/auth/ProtectedRoute";
 import { useAuth } from "./hooks/useAuth";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
+import { IncomePage } from "./pages/IncomePage";
+import { CommitmentsPage } from "./pages/CommitmentsPage";
+import { ForecastPage } from "./pages/ForecastPage";
 
 function LoginPage() {
   const { user, loading } = useAuth();
@@ -20,6 +23,9 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<DashboardPage />} />
           <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="income" element={<IncomePage />} />
+          <Route path="commitments" element={<CommitmentsPage />} />
+          <Route path="forecast" element={<ForecastPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

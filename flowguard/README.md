@@ -176,9 +176,10 @@ passwords, access tokens, or permanent AWS access keys in the test files.
 
 ## Frontend development
 
-The first React and TypeScript milestone includes Cognito sign-in and sign-out,
-protected routes, the dashboard shell, and expense create, list, update, and
-delete operations against the deployed API.
+The React and TypeScript frontend includes Cognito sign-in and sign-out,
+protected routes, the dashboard shell, complete expense, income, and commitment
+CRUD interfaces, and an interactive deterministic cash-flow forecast with a
+safe-to-spend summary, buffer warnings, chart, and event timeline.
 
 The local AWS development identifiers are stored in an ignored `.env.local`
 file. Use `.env.example` when configuring another environment.

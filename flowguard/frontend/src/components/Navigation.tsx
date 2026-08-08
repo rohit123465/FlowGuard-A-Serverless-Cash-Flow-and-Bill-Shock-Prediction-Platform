@@ -3,6 +3,9 @@ import { NavLink } from "react-router-dom";
 const links = [
   { to: "/", label: "Overview", icon: "◫" },
   { to: "/expenses", label: "Expenses", icon: "↘" },
+  { to: "/income", label: "Income", icon: "↗" },
+  { to: "/commitments", label: "Commitments", icon: "⌁" },
+  { to: "/forecast", label: "Forecast", icon: "⌁" },
 ];
 
 export function Navigation() {
@@ -19,10 +22,6 @@ export function Navigation() {
           {link.label}
         </NavLink>
       ))}
-      <div className="nav-section-label">Coming next</div>
-      <span className="nav-link disabled"><span>↗</span>Income</span>
-      <span className="nav-link disabled"><span>⌁</span>Commitments</span>
-      <span className="nav-link disabled"><span>⌁</span>Forecast</span>
     </nav>
   );
 }
