@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Navigation } from "./Navigation";
+import { NotificationInbox } from "../features/notifications/NotificationInbox";
 
 export function Layout() {
   const { user, signOut } = useAuth();
@@ -22,6 +23,7 @@ export function Layout() {
           <div><span className="live-dot" />AWS development environment</div>
           <button className="button button-quiet" onClick={signOut}>Sign out</button>
         </header>
+        <NotificationInbox />
         <main className="page"><Outlet /></main>
       </div>
     </div>

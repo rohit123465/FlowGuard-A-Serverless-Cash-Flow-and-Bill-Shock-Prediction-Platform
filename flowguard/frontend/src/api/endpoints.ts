@@ -10,6 +10,8 @@ import type {
   Income,
   IncomeInput,
   MonthlyAnalyticsResult,
+  BillShockNotification,
+  BillShockSettings,
   ReceiptUploadForm,
 } from "../types/finance";
 
@@ -156,4 +158,18 @@ export async function downloadExpenseCsv(
     throw new ApiError(payload.error?.message ?? "CSV export failed", response.status, payload.error?.code);
   }
   return response.blob();
+}
+
+export function notificationApi(getAccessToken: AccessTokenProvider) {
+  const request = createApiClient(getAccessToken);
+  return {
+    list: () => request<BillShockNotification[]>("/notifications"),
+    getSettings: () => request<BillShockSettings>("/notifications/settings"),
+    updateSettings(settings: BillShockSettings) {
+      return request<BillShockSettings>("/notifications/settings", { method: "PUT", body: JSON.stringify(settings) });
+    },
+    markRead(notificationId: string) {
+      return request<void>(`/notifications/${notificationId}/read`, { method: "PUT" });
+    },
+  };
 }

@@ -78,6 +78,8 @@ class AwsTestEnvironment:
     user_pool_client_id: str
     api_url: str
     usernames: list[str]
+    lambda_client: Any
+    scheduled_bill_shock_function_name: str
 
     def create_user(self, label: str) -> ApiClient:
         unique = f"{int(time.time())}-{secrets.randbelow(1_000_000)}"
@@ -138,6 +140,11 @@ def aws_environment(request: pytest.FixtureRequest) -> AwsTestEnvironment:
         user_pool_client_id=outputs["UserPoolClientId"],
         api_url=outputs["HttpApiUrl"],
         usernames=[],
+        lambda_client=session.client("lambda"),
+        scheduled_bill_shock_function_name=cloudformation.describe_stack_resource(
+            StackName=stack_name,
+            LogicalResourceId="ScheduledBillShockFunction",
+        )["StackResourceDetail"]["PhysicalResourceId"],
     )
     yield environment
 

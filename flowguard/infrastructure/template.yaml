@@ -43,6 +43,10 @@ Resources:
           AttributeType: S
         - AttributeName: GSI1SK
           AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -54,6 +58,14 @@ Resources:
             - AttributeName: GSI1PK
               KeyType: HASH
             - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
@@ -445,6 +457,76 @@ Resources:
             Method: GET
             Path: /analytics/monthly
             PayloadFormatVersion: "2.0"
+
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.notifications.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        GetNotificationSettings:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /notifications/settings
+            PayloadFormatVersion: "2.0"
+        UpdateNotificationSettings:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: PUT
+            Path: /notifications/settings
+            PayloadFormatVersion: "2.0"
+        ListNotifications:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /notifications
+            PayloadFormatVersion: "2.0"
+        MarkNotificationRead:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: PUT
+            Path: /notifications/{notificationId}/read
+            PayloadFormatVersion: "2.0"
+
+  ScheduledBillShockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.scheduled_bill_shock.handler
+      Timeout: 60
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        DailyBillShockCheck:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 7 * * ? *)
+            Description: Run conservative bill-shock forecasts for opted-in users daily
+            Enabled: true
 
 Outputs:
   FinancialRecordsTableName:

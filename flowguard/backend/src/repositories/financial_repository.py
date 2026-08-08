@@ -9,6 +9,11 @@ from botocore.exceptions import ClientError
 from ..models.commitment import Commitment
 from ..models.expense import Expense
 from ..models.income import ExpectedIncome
+from ..models.notification import (
+    BillShockNotification,
+    BillShockSettings,
+    EnabledBillShockSettings,
+)
 
 
 FinancialRecord = Expense | ExpectedIncome | Commitment
@@ -27,6 +32,8 @@ class FinancialRepository:
     EXPENSE = "EXPENSE"
     INCOME = "INCOME"
     COMMITMENT = "COMMITMENT"
+    BILL_SHOCK_SETTINGS_SK = "SETTINGS#BILL_SHOCK"
+    NOTIFICATION_PREFIX = "NOTIFICATION#"
 
     def __init__(self, table: Any) -> None:
         self._table = table
@@ -347,3 +354,128 @@ class FinancialRepository:
 
     def delete_commitment(self, user_id: str, commitment_id: UUID) -> bool:
         return self._delete(user_id, self.COMMITMENT, commitment_id)
+
+    def put_bill_shock_settings(self, user_id: str, settings: BillShockSettings) -> None:
+        user_pk = self._user_pk(user_id)
+        item = {
+            "PK": user_pk,
+            "SK": self.BILL_SHOCK_SETTINGS_SK,
+            "entityType": "BILL_SHOCK_SETTINGS",
+            "enabled": settings.enabled,
+            "openingBalanceMinor": settings.opening_balance_minor,
+            "safetyBufferMinor": settings.safety_buffer_minor,
+            "horizonDays": settings.horizon_days,
+            "includeLikelyIncome": settings.include_likely_income,
+        }
+        if settings.enabled:
+            item.update({"GSI2PK": "BILL_SHOCK#ENABLED", "GSI2SK": user_pk})
+        self._table.put_item(Item=item)
+
+    def get_bill_shock_settings(self, user_id: str) -> BillShockSettings:
+        response = self._table.get_item(
+            Key={"PK": self._user_pk(user_id), "SK": self.BILL_SHOCK_SETTINGS_SK},
+            ConsistentRead=True,
+        )
+        item = response.get("Item")
+        if not item:
+            return BillShockSettings()
+        return BillShockSettings(
+            enabled=item["enabled"],
+            opening_balance_minor=item["openingBalanceMinor"],
+            safety_buffer_minor=item["safetyBufferMinor"],
+            horizon_days=item["horizonDays"],
+            include_likely_income=item.get("includeLikelyIncome", False),
+        )
+
+    def list_enabled_bill_shock_settings(self) -> list[EnabledBillShockSettings]:
+        items: list[dict[str, Any]] = []
+        arguments: dict[str, Any] = {
+            "IndexName": "GSI2",
+            "KeyConditionExpression": Key("GSI2PK").eq("BILL_SHOCK#ENABLED"),
+        }
+        while True:
+            response = self._table.query(**arguments)
+            items.extend(response.get("Items", []))
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            arguments["ExclusiveStartKey"] = last_key
+        return [
+            EnabledBillShockSettings(
+                user_id=item["PK"].removeprefix("USER#"),
+                settings=BillShockSettings(
+                    enabled=True,
+                    opening_balance_minor=item["openingBalanceMinor"],
+                    safety_buffer_minor=item["safetyBufferMinor"],
+                    horizon_days=item["horizonDays"],
+                    include_likely_income=item.get("includeLikelyIncome", False),
+                ),
+            )
+            for item in items
+        ]
+
+    def put_notification(self, user_id: str, notification: BillShockNotification) -> bool:
+        item = {
+            "PK": self._user_pk(user_id),
+            "SK": f"{self.NOTIFICATION_PREFIX}{notification.notification_id}",
+            "entityType": "BILL_SHOCK_NOTIFICATION",
+            "notificationId": str(notification.notification_id),
+            "createdAt": notification.created_at.isoformat(),
+            "forecastStartDate": notification.forecast_start_date.isoformat(),
+            "forecastEndDate": notification.forecast_end_date.isoformat(),
+            "firstShortfallDate": notification.first_shortfall_date.isoformat(),
+            "shortfallAmountMinor": notification.shortfall_amount_minor,
+            "minimumBalanceMinor": notification.minimum_balance_minor,
+            "safetyBufferMinor": notification.safety_buffer_minor,
+            "read": notification.read,
+        }
+        try:
+            self._table.put_item(
+                Item=item,
+                ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+            )
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
+    @staticmethod
+    def _item_to_notification(item: dict[str, Any]) -> BillShockNotification:
+        return BillShockNotification(
+            notification_id=item["notificationId"],
+            created_at=item["createdAt"],
+            forecast_start_date=item["forecastStartDate"],
+            forecast_end_date=item["forecastEndDate"],
+            first_shortfall_date=item["firstShortfallDate"],
+            shortfall_amount_minor=item["shortfallAmountMinor"],
+            minimum_balance_minor=item["minimumBalanceMinor"],
+            safety_buffer_minor=item["safetyBufferMinor"],
+            read=item.get("read", False),
+        )
+
+    def list_notifications(self, user_id: str) -> list[BillShockNotification]:
+        notifications = self._query_by_type(
+            user_id,
+            self.NOTIFICATION_PREFIX.rstrip("#"),
+            self._item_to_notification,
+        )
+        return sorted(notifications, key=lambda item: item.created_at, reverse=True)
+
+    def mark_notification_read(self, user_id: str, notification_id: UUID) -> bool:
+        try:
+            self._table.update_item(
+                Key={
+                    "PK": self._user_pk(user_id),
+                    "SK": f"{self.NOTIFICATION_PREFIX}{notification_id}",
+                },
+                UpdateExpression="SET #read = :true",
+                ConditionExpression="attribute_exists(PK) AND attribute_exists(SK)",
+                ExpressionAttributeNames={"#read": "read"},
+                ExpressionAttributeValues={":true": True},
+            )
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise

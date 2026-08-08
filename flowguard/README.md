@@ -197,6 +197,13 @@ It also includes these user-facing features:
   counts, essential versus discretionary spending, and spending by category.
   These are descriptive calculations from the user's stored records; they are
   not ML predictions or financial advice.
+- **Scheduled bill-shock warnings:** an opted-in EventBridge schedule runs at
+  07:00 UTC each day. It uses the user's saved balance, safety buffer and
+  forecast window to run the deterministic forecast. If the projected minimum
+  balance falls below the buffer, a user-scoped notification is stored in
+  DynamoDB. The authenticated React application checks for warnings every
+  minute and shows a dismissible banner. Users configure this under **Warning
+  settings** and should keep their current balance accurate.
 
 The local AWS development identifiers are stored in an ignored `.env.local`
 file. Use `.env.example` when configuring another environment.

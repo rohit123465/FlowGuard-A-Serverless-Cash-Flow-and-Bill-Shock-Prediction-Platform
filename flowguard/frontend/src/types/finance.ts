@@ -103,3 +103,23 @@ export interface MonthlyAnalyticsResult {
   highest_spending_category: string | null;
   category_breakdown: MonthlyCategory[];
 }
+
+export interface BillShockSettings {
+  enabled: boolean;
+  opening_balance_minor: number;
+  safety_buffer_minor: number;
+  horizon_days: number;
+  include_likely_income: boolean;
+}
+
+export interface BillShockNotification {
+  notification_id: string;
+  created_at: string;
+  forecast_start_date: string;
+  forecast_end_date: string;
+  first_shortfall_date: string;
+  shortfall_amount_minor: number;
+  minimum_balance_minor: number;
+  safety_buffer_minor: number;
+  read: boolean;
+}
