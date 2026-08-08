@@ -154,6 +154,51 @@ Run the complete backend test suite:
 python -m pytest -v -p no:cacheprovider
 ```
 
+The deployed-AWS integration and system tests are opt-in. They discover API
+and Cognito identifiers from the `flowguard-dev` CloudFormation stack, create
+temporary Cognito users and financial records, and clean them up afterward.
+
+From the `backend` directory, run all deployed-AWS tests with:
+
+```powershell
+python -m pytest tests\integration tests\system --run-aws-tests --aws-profile flowguard-dev --aws-region eu-west-2 --stack-name flowguard-dev -v
+```
+
+Run only integration or system tests with:
+
+```powershell
+python -m pytest -m integration --run-aws-tests -v
+python -m pytest -m system --run-aws-tests -v
+```
+
+These tests contact real AWS services and can incur small charges. Never put
+passwords, access tokens, or permanent AWS access keys in the test files.
+
+## Frontend development
+
+The first React and TypeScript milestone includes Cognito sign-in and sign-out,
+protected routes, the dashboard shell, and expense create, list, update, and
+delete operations against the deployed API.
+
+The local AWS development identifiers are stored in an ignored `.env.local`
+file. Use `.env.example` when configuring another environment.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` and sign in with a confirmed Cognito application
+user. The SAM API CORS configuration currently allows this origin.
+
+Run the frontend checks with:
+
+```powershell
+npm test
+npm run build
+```
+
 ## Infrastructure validation and deployment
 
 From the project root:

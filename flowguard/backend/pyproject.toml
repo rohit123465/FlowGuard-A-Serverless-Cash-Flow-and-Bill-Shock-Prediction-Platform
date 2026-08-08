@@ -1,1 +1,7 @@
-
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "aws: requires access to the deployed AWS development stack",
+    "integration: exercises deployed API endpoints and AWS persistence",
+    "system: exercises complete deployed workflows across AWS services",
+]
