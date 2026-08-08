@@ -44,8 +44,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     if route_key == "PUT /expenses/{expenseId}":
         expense_id = get_path_uuid(event, "expenseId")
+        existing = repository.get_expense(user_id, expense_id)
+        if existing is None:
+            raise RecordNotFoundError("expense does not exist")
         body = parse_json_body(event)
         body["expense_id"] = expense_id
+        body["receipt_key"] = existing.receipt_key
         expense = Expense.model_validate(body)
         repository.update_expense(user_id, expense)
         return json_response(200, model_data(expense))

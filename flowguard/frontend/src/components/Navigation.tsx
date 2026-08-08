@@ -6,6 +6,7 @@ const links = [
   { to: "/income", label: "Income", icon: "↗" },
   { to: "/commitments", label: "Commitments", icon: "⌁" },
   { to: "/forecast", label: "Forecast", icon: "⌁" },
+  { to: "/analytics", label: "Analytics", icon: "▥" },
 ];
 
 export function Navigation() {

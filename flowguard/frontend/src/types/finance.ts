@@ -8,6 +8,7 @@ export interface Expense {
   category: string;
   status: ExpenseStatus;
   essential: boolean;
+  receipt_key: string | null;
 }
 
 export interface ExpenseInput {
@@ -73,4 +74,32 @@ export interface ForecastResult {
   shortfall_amount_minor: number;
   excluded_income_count: number;
   timeline: ForecastEvent[];
+}
+
+export interface ReceiptUploadForm {
+  upload_url: string;
+  fields: Record<string, string>;
+  receipt_key: string;
+  expires_in: number;
+}
+
+export interface MonthlyCategory {
+  category: string;
+  amount_minor: number;
+  percentage: number;
+}
+
+export interface MonthlyAnalyticsResult {
+  year: number;
+  month: number;
+  total_income_minor: number;
+  total_expenses_minor: number;
+  essential_expenses_minor: number;
+  discretionary_expenses_minor: number;
+  net_cash_flow_minor: number;
+  savings_rate_percent: number | null;
+  expense_count: number;
+  income_count: number;
+  highest_spending_category: string | null;
+  category_breakdown: MonthlyCategory[];
 }

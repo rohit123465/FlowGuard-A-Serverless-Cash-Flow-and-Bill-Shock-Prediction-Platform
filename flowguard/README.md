@@ -181,6 +181,21 @@ protected routes, the dashboard shell, complete expense, income, and commitment
 CRUD interfaces, and an interactive deterministic cash-flow forecast with a
 safe-to-spend summary, buffer warnings, chart, and event timeline.
 
+It also includes these user-facing features:
+
+- **Receipt upload:** attach a JPEG, PNG, or PDF receipt (up to 5 MB) to an
+  expense. The file is uploaded directly to a private encrypted S3 bucket using
+  a five-minute signed upload, while DynamoDB stores only its object key. Signed
+  download links are also short-lived.
+- **CSV export:** download the expenses for the selected date range as a CSV
+  file for Excel, Google Sheets, accounting, or personal backups. Monetary
+  values are exported as readable pounds rather than internal minor units.
+- **Monthly analytics:** summarise a selected month using total income, total
+  spending, net cash flow (income minus expenses), savings rate, transaction
+  counts, essential versus discretionary spending, and spending by category.
+  These are descriptive calculations from the user's stored records; they are
+  not ML predictions or financial advice.
+
 The local AWS development identifiers are stored in an ignored `.env.local`
 file. Use `.env.example` when configuring another environment.
 

@@ -84,6 +84,8 @@ class FinancialRepository:
                 "essential": expense.essential,
             }
         )
+        if expense.receipt_key:
+            item["receiptKey"] = expense.receipt_key
         return item
 
     def _income_to_item(self, user_id: str, income: ExpectedIncome) -> dict[str, Any]:
@@ -137,6 +139,7 @@ class FinancialRepository:
             category=item["category"],
             status=item["status"],
             essential=item["essential"],
+            receipt_key=item.get("receiptKey"),
         )
 
     @staticmethod

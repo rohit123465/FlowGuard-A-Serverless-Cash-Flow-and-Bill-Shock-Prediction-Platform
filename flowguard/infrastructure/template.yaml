@@ -67,6 +67,45 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  ReceiptBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - !Ref FrontendOrigin
+            AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - POST
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: Application
+          Value: FlowGuard
+        - Key: Environment
+          Value: !Ref Environment
+
   FlowGuardUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -305,6 +344,101 @@ Resources:
             Path: /forecast
             PayloadFormatVersion: "2.0"
 
+  ReceiptFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.receipts.handler
+      Environment:
+        Variables:
+          RECEIPT_BUCKET_NAME: !Ref ReceiptBucket
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: !GetAtt FinancialRecordsTable.Arn
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource: !Sub ${ReceiptBucket.Arn}/receipts/*
+      Events:
+        CreateReceiptUpload:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: POST
+            Path: /expenses/{expenseId}/receipt-upload
+            PayloadFormatVersion: "2.0"
+        ConfirmReceiptUpload:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: POST
+            Path: /expenses/{expenseId}/receipt-confirm
+            PayloadFormatVersion: "2.0"
+        GetReceipt:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /expenses/{expenseId}/receipt
+            PayloadFormatVersion: "2.0"
+        DeleteReceipt:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: DELETE
+            Path: /expenses/{expenseId}/receipt
+            PayloadFormatVersion: "2.0"
+
+  ExportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.exports.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        ExportExpensesCsv:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /exports/expenses.csv
+            PayloadFormatVersion: "2.0"
+
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.analytics.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+      Events:
+        GetMonthlyAnalytics:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /analytics/monthly
+            PayloadFormatVersion: "2.0"
+
 Outputs:
   FinancialRecordsTableName:
     Description: DynamoDB table containing FlowGuard financial records
@@ -321,3 +455,6 @@ Outputs:
   UserPoolClientId:
     Description: Cognito application client identifier
     Value: !Ref FlowGuardUserPoolClient
+  ReceiptBucketName:
+    Description: Private S3 bucket containing uploaded expense receipts
+    Value: !Ref ReceiptBucket

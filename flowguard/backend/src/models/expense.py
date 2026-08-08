@@ -20,3 +20,4 @@ class Expense(BaseModel):
     category: str = Field(min_length=1, max_length=80)
     status: ExpenseStatus = ExpenseStatus.PLANNED
     essential: bool = False
+    receipt_key: str | None = Field(default=None, max_length=1024)

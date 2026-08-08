@@ -13,6 +13,20 @@ export class ApiError extends Error {
 
 export type AccessTokenProvider = () => Promise<string>;
 
+export async function authorizedFetch(
+  getAccessToken: AccessTokenProvider,
+  path: string,
+  options: RequestInit = {},
+) {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+  if (!baseUrl) throw new Error("VITE_API_BASE_URL is not configured");
+  const token = await getAccessToken();
+  const headers = new Headers(options.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  return fetch(`${baseUrl}${path}`, { ...options, headers });
+}
+
 export function createApiClient(getAccessToken: AccessTokenProvider) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
   if (!baseUrl) {
@@ -23,14 +37,7 @@ export function createApiClient(getAccessToken: AccessTokenProvider) {
     path: string,
     options: RequestInit = {},
   ): Promise<T> {
-    const token = await getAccessToken();
-    const headers = new Headers(options.headers);
-    headers.set("Authorization", `Bearer ${token}`);
-    if (options.body) {
-      headers.set("Content-Type", "application/json");
-    }
-
-    const response = await fetch(`${baseUrl}${path}`, { ...options, headers });
+    const response = await authorizedFetch(getAccessToken, path, options);
     if (response.status === 204) {
       return undefined as T;
     }

@@ -12,6 +12,7 @@ const expense: Expense = {
   category: "groceries",
   status: "cleared",
   essential: true,
+  receipt_key: null,
 };
 
 describe("ExpenseList", () => {

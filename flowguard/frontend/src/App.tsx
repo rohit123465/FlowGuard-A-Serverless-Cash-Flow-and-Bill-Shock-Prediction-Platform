@@ -8,6 +8,7 @@ import { ExpensesPage } from "./pages/ExpensesPage";
 import { IncomePage } from "./pages/IncomePage";
 import { CommitmentsPage } from "./pages/CommitmentsPage";
 import { ForecastPage } from "./pages/ForecastPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
 
 function LoginPage() {
   const { user, loading } = useAuth();
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="income" element={<IncomePage />} />
           <Route path="commitments" element={<CommitmentsPage />} />
           <Route path="forecast" element={<ForecastPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

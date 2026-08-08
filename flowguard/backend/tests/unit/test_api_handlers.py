@@ -10,6 +10,8 @@ from src.handlers import commitments as commitment_handler
 from src.handlers import expenses as expense_handler
 from src.handlers import forecast as forecast_handler
 from src.handlers import income as income_handler
+from src.handlers import analytics as analytics_handler
+from src.handlers import exports as export_handler
 from src.models.commitment import Commitment
 from src.models.expense import Expense
 from src.models.income import ExpectedIncome
@@ -81,6 +83,8 @@ def repository(monkeypatch: pytest.MonkeyPatch) -> Iterator[FinancialRepository]
             income_handler,
             commitment_handler,
             forecast_handler,
+            analytics_handler,
+            export_handler,
         ):
             monkeypatch.setattr(module, "get_repository", lambda: repository)
         yield repository
@@ -368,6 +372,81 @@ def test_forecast_api_rejects_invalid_query(repository: FinancialRepository) -> 
     )
 
     assert response["statusCode"] == 400
+
+
+def test_monthly_analytics_uses_stored_income_and_expenses(
+    repository: FinancialRepository,
+) -> None:
+    repository.create_income(
+        "user-a",
+        ExpectedIncome(
+            source="Salary",
+            amount_minor=200_000,
+            expected_date=date(2026, 8, 15),
+        ),
+    )
+    repository.create_expense(
+        "user-a",
+        Expense(
+            description="Rent",
+            amount_minor=80_000,
+            expense_date=date(2026, 8, 1),
+            category="housing",
+            essential=True,
+        ),
+    )
+    repository.create_expense(
+        "user-a",
+        Expense(
+            description="Cinema",
+            amount_minor=2_000,
+            expense_date=date(2026, 8, 5),
+            category="leisure",
+            essential=False,
+        ),
+    )
+
+    response = analytics_handler.handler(
+        api_event(
+            "GET /analytics/monthly",
+            query_parameters={"year": "2026", "month": "8"},
+        ),
+        None,
+    )
+    data = response_body(response)["data"]
+    assert response["statusCode"] == 200
+    assert data["total_income_minor"] == 200_000
+    assert data["total_expenses_minor"] == 82_000
+    assert data["net_cash_flow_minor"] == 118_000
+    assert data["savings_rate_percent"] == 59.0
+    assert data["highest_spending_category"] == "housing"
+
+
+def test_expense_csv_export_is_downloadable(repository: FinancialRepository) -> None:
+    repository.create_expense(
+        "user-a",
+        Expense(
+            description="Groceries, weekly",
+            amount_minor=4_250,
+            expense_date=date(2026, 8, 10),
+            category="groceries",
+            essential=True,
+        ),
+    )
+    response = export_handler.handler(
+        api_event(
+            "GET /exports/expenses.csv",
+            query_parameters={
+                "startDate": "2026-08-01",
+                "endDate": "2026-08-31",
+            },
+        ),
+        None,
+    )
+    assert response["statusCode"] == 200
+    assert response["headers"]["Content-Type"].startswith("text/csv")
+    assert '"Groceries, weekly"' in response["body"]
+    assert "42.50" in response["body"]
 
 
 def test_invalid_uuid_returns_400(repository: FinancialRepository) -> None:

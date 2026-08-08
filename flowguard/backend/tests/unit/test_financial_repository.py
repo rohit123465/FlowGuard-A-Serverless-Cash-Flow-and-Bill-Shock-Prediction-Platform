@@ -94,6 +94,18 @@ def test_records_are_isolated_by_user(repository: FinancialRepository) -> None:
     assert repository.get_expense("user-a", expense.expense_id) == expense
 
 
+def test_expense_receipt_key_is_persisted(repository: FinancialRepository) -> None:
+    expense = Expense(
+        description="Receipt test",
+        amount_minor=1_500,
+        expense_date=date(2026, 8, 10),
+        category="other",
+        receipt_key="receipts/user-a/expense/receipt.png",
+    )
+    repository.create_expense("user-a", expense)
+    assert repository.get_expense("user-a", expense.expense_id) == expense
+
+
 def test_duplicate_record_is_rejected(repository: FinancialRepository) -> None:
     expense = Expense(
         description="Train ticket",
