@@ -167,6 +167,9 @@ Resources:
     Properties:
       CodeUri: ../backend/
       Handler: src.handlers.expenses.handler
+      Environment:
+        Variables:
+          RECEIPT_BUCKET_NAME: !Ref ReceiptBucket
       Policies:
         - Statement:
             - Effect: Allow
@@ -178,6 +181,10 @@ Resources:
               Resource:
                 - !GetAtt FinancialRecordsTable.Arn
                 - !Sub ${FinancialRecordsTable.Arn}/index/*
+            - Effect: Allow
+              Action:
+                - s3:DeleteObject
+              Resource: !Sub ${ReceiptBucket.Arn}/receipts/*
       Events:
         CreateExpense:
           Type: HttpApi

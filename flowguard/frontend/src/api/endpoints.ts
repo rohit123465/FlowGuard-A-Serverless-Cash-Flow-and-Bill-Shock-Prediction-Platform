@@ -102,12 +102,25 @@ export function receiptApi(getAccessToken: AccessTokenProvider) {
         body: JSON.stringify({ filename: file.name, content_type: file.type, size_bytes: file.size }),
       });
     },
-    async uploadToS3(form: ReceiptUploadForm, file: File) {
+    uploadToS3(form: ReceiptUploadForm, file: File, onProgress?: (percent: number) => void) {
       const body = new FormData();
       Object.entries(form.fields).forEach(([key, value]) => body.append(key, value));
       body.append("file", file);
-      const response = await fetch(form.upload_url, { method: "POST", body });
-      if (!response.ok) throw new Error("S3 could not store the receipt");
+      return new Promise<void>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("POST", form.upload_url);
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+        };
+        request.onload = () => {
+          if (request.status >= 200 && request.status < 300) resolve();
+          else reject(new Error("The receipt could not be stored. Please try again."));
+        };
+        request.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
+        request.ontimeout = () => reject(new Error("The upload timed out. Please try again."));
+        request.timeout = 60_000;
+        request.send(body);
+      });
     },
     confirm(expenseId: string, receiptKey: string) {
       return request<Expense>(`/expenses/${expenseId}/receipt-confirm`, { method: "POST", body: JSON.stringify({ receipt_key: receiptKey }) });

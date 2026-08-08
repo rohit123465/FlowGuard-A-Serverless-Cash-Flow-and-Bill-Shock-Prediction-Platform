@@ -186,7 +186,9 @@ It also includes these user-facing features:
 - **Receipt upload:** attach a JPEG, PNG, or PDF receipt (up to 5 MB) to an
   expense. The file is uploaded directly to a private encrypted S3 bucket using
   a five-minute signed upload, while DynamoDB stores only its object key. Signed
-  download links are also short-lived.
+  download links are also short-lived. FlowGuard verifies the uploaded file's
+  signature, shows upload progress, and automatically removes the S3 object
+  when its expense is deleted.
 - **CSV export:** download the expenses for the selected date range as a CSV
   file for Excel, Google Sheets, accounting, or personal backups. Monetary
   values are exported as readable pounds rather than internal minor units.

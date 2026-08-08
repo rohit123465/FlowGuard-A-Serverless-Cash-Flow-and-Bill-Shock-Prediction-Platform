@@ -7,7 +7,12 @@ from ..handler_utils import api_handler, get_path_uuid, get_route_key, model_dat
 from ..models.receipt import ReceiptConfirmRequest, ReceiptUploadRequest
 from ..repositories.financial_repository import RecordNotFoundError
 from ..responses import error_response, json_response, no_content_response
-from ..services.receipt_service import PRESIGNED_URL_SECONDS, receipt_object_key, validate_receipt
+from ..services.receipt_service import (
+    PRESIGNED_URL_SECONDS,
+    receipt_object_key,
+    validate_receipt,
+    validate_receipt_signature,
+)
 
 
 def _expense_or_404(user_id, expense_id):
@@ -62,6 +67,16 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             metadata.get("ContentType", ""),
             metadata.get("ContentLength", 0),
         )
+        receipt_header = s3.get_object(
+            Bucket=settings.receipt_bucket_name,
+            Key=request.receipt_key,
+            Range="bytes=0-7",
+        )["Body"].read()
+        try:
+            validate_receipt_signature(metadata.get("ContentType", ""), receipt_header)
+        except Exception:
+            s3.delete_object(Bucket=settings.receipt_bucket_name, Key=request.receipt_key)
+            raise
         if expense.receipt_key and expense.receipt_key != request.receipt_key:
             s3.delete_object(Bucket=settings.receipt_bucket_name, Key=expense.receipt_key)
         updated = expense.model_copy(update={"receipt_key": request.receipt_key})

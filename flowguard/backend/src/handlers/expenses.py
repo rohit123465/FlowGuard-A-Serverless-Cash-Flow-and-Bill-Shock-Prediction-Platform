@@ -1,7 +1,8 @@
 from typing import Any
 
 from ..auth import get_user_id
-from ..database import get_repository
+from ..config import get_settings
+from ..database import get_repository, get_s3_client
 from ..handler_utils import (
     api_handler,
     get_path_uuid,
@@ -56,6 +57,17 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     if route_key == "DELETE /expenses/{expenseId}":
         expense_id = get_path_uuid(event, "expenseId")
+        existing = repository.get_expense(user_id, expense_id)
+        if existing is None:
+            raise RecordNotFoundError("expense does not exist")
+        if existing.receipt_key:
+            settings = get_settings()
+            if not settings.receipt_bucket_name:
+                raise RuntimeError("RECEIPT_BUCKET_NAME is required")
+            get_s3_client().delete_object(
+                Bucket=settings.receipt_bucket_name,
+                Key=existing.receipt_key,
+            )
         if not repository.delete_expense(user_id, expense_id):
             raise RecordNotFoundError("expense does not exist")
         return no_content_response()

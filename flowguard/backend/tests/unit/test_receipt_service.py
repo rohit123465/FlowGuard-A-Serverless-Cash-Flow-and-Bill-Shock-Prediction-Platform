@@ -3,7 +3,11 @@ from uuid import UUID
 import pytest
 
 from src.handler_utils import BadRequestError
-from src.services.receipt_service import receipt_object_key, validate_receipt
+from src.services.receipt_service import (
+    receipt_object_key,
+    validate_receipt,
+    validate_receipt_signature,
+)
 
 
 @pytest.mark.parametrize(
@@ -24,6 +28,25 @@ def test_receipt_rejects_unsupported_or_oversized_files() -> None:
         validate_receipt("receipt.exe", "application/octet-stream", 1024)
     with pytest.raises(BadRequestError):
         validate_receipt("receipt.png", "image/png", 5 * 1024 * 1024 + 1)
+    with pytest.raises(BadRequestError):
+        validate_receipt("receipt.png", "image/png", 0)
+
+
+@pytest.mark.parametrize(
+    ("content_type", "header"),
+    [
+        ("image/jpeg", b"\xff\xd8\xff\xe0"),
+        ("image/png", b"\x89PNG\r\n\x1a\n"),
+        ("application/pdf", b"%PDF-1.7"),
+    ],
+)
+def test_receipt_contents_match_the_declared_type(content_type, header) -> None:
+    validate_receipt_signature(content_type, header)
+
+
+def test_receipt_rejects_disguised_file_contents() -> None:
+    with pytest.raises(BadRequestError):
+        validate_receipt_signature("image/png", b"not a png")
 
 
 def test_receipt_key_is_scoped_to_user_and_expense() -> None:
