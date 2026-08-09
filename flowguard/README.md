@@ -26,34 +26,55 @@ The deterministic calculation remains the source of exact balances and warning t
 ## Pipeline architecture and behaviour
 
 ```mermaid
-flowchart TD
-    U["User"] --> F["React and TypeScript frontend"]
-    F --> C["Amazon Cognito authentication"]
-    C -->|"JWT access token"| A["API Gateway HTTP API"]
-    A --> L["Python Lambda functions"]
+flowchart TB
+    subgraph Client["1. Client"]
+        U["User"] --> F["React + TypeScript frontend"]
+    end
 
-    L --> D["DynamoDB financial records and notifications"]
-    L --> S["Private S3 receipt storage"]
-    L --> T["Amazon Textract receipt analysis"]
-    L --> M["Versioned logistic-regression model in S3"]
+    subgraph Access["2. Authentication and API"]
+        C["Amazon Cognito"]
+        A["API Gateway"]
+    end
 
-    D --> CF["Deterministic cash-flow forecast"]
-    D --> RF["ML risk feature generation"]
-    M --> RF
-    CF --> R["Balance timeline, safe-to-spend and exact shortfall"]
-    RF --> P["Estimated shortfall probability"]
-    R --> F
-    P --> F
+    subgraph Application["3. Serverless application"]
+        L["Python Lambda handlers"]
+        FE["Cash-flow and risk services"]
+        W["Scheduled warning Lambda"]
+    end
 
-    E["EventBridge daily schedule"] --> W["Scheduled bill-shock Lambda"]
-    W --> D
-    W --> CF
-    W --> RF
-    W --> N["User-scoped warning stored in DynamoDB"]
-    N --> F
+    subgraph Data["4. Data and intelligence"]
+        D[("DynamoDB<br/>financial records, settings and warnings")]
+        R["Receipt pipeline<br/>Private S3 + Amazon Textract"]
+        MS[("S3<br/>versioned logistic-regression model")]
+    end
 
-    L --> CW["CloudWatch logs and monitoring"]
-    W --> CW
+    subgraph Automation["5. Automation and observability"]
+        E["EventBridge<br/>daily schedule"]
+        CW["CloudWatch<br/>logs and monitoring"]
+    end
+
+    F -->|"Sign in"| C
+    C -->|"JWT-protected request"| A
+    A --> L
+
+    L <-->|"User-scoped CRUD"| D
+    L <-->|"Upload and extract"| R
+    L --> FE
+    D --> FE
+    MS --> FE
+    FE -->|"Forecast, analytics and risk result"| F
+
+    E --> W
+    W --> FE
+    W -->|"Store warning"| D
+
+    L -.->|"Logs and metrics"| CW
+    W -.->|"Logs and metrics"| CW
+```
+
+```text
+Interactive path: User → Frontend → Cognito/API Gateway → Lambda → AWS services → Frontend
+Scheduled path:   EventBridge → Warning Lambda → Forecast + ML risk → DynamoDB notification
 ```
 
 ### Behaviour
