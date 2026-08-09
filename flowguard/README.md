@@ -1,218 +1,112 @@
 # FlowGuard
 
-**A Serverless Cash-Flow and Bill-Shock Prediction Platform with ML-Powered Financial Risk Detection**
+## Project description
 
-FlowGuard helps people with irregular income understand how much they can safely spend before upcoming bills are due. Unlike a conventional expense tracker that only explains past spending, FlowGuard combines a transparent cash-flow forecast with machine-learning risk predictions.
+FlowGuard is a full-stack, serverless cash-flow and bill-shock risk platform. It allows authenticated users to record expenses, expected income and future commitments; upload and scan receipts; view monthly analytics; export records as CSV; and forecast whether their balance may fall below a personal safety buffer.
 
-## Problem
+The system combines two complementary calculations:
 
-Freelancers, contractors, students, gig workers, and people on variable incomes may have enough money across a whole month but still run short before an important bill. Payment timing and income uncertainty make a monthly budget insufficient.
+- A deterministic cash-flow forecast calculates the projected balance, lowest balance, safe-to-spend amount, first shortfall date and exact shortfall using the financial records supplied by the user.
+- An explainable logistic-regression model estimates the probability of the balance falling below the safety buffer. It is trained on 12,000 synthetic account scenarios calibrated using aggregate UK Office for National Statistics Family Spending data.
 
-FlowGuard is designed to answer two questions:
+FlowGuard uses React and TypeScript for the frontend and Python for the backend. Its AWS infrastructure includes Amazon Cognito, API Gateway, Lambda, DynamoDB, S3, Textract, EventBridge and CloudWatch, provisioned through AWS SAM and CloudFormation.
 
-1. **Rule-based forecast:** How much can I safely spend based on my current balance, known bills, expected income, and chosen safety buffer?
-2. **ML risk prediction:** How likely am I to fall below that safety buffer during the next 30 days, based on historical behaviour and uncertainty?
+## Problem it solves
 
-The deterministic forecast remains the source of precise calculations. Machine learning will complement it by estimating uncertainty rather than replacing understandable financial rules.
+Traditional expense trackers mainly describe money that has already been spent. They do not clearly show whether the timing of upcoming bills and uncertain income could leave somebody short of money before their next payment arrives.
 
-## Revised project objectives
+FlowGuard is designed for people such as students, freelancers, contractors and gig workers whose income or payment dates may vary. It answers three practical questions:
 
-FlowGuard is primarily a software-engineering project with machine learning incorporated as a production subsystem. Its objectives are to:
+1. How will known income, expenses and commitments change my balance over the selected period?
+2. Will my projected balance fall below the minimum safety buffer I want to preserve?
+3. What is the estimated probability of a shortfall when income timing and unexpected outgoings are uncertain?
 
-1. Build a secure, serverless application that scales without managing traditional servers.
-2. Help users with irregular income plan around the timing of bills, expenses, and uncertain payments.
-3. Calculate an understandable safe-to-spend amount using a deterministic cash-flow engine.
-4. Predict the probability of falling below a chosen safety buffer within the next 30 days using machine learning.
-5. Keep deterministic calculations and probabilistic ML predictions separate so users can understand what each result means.
-6. Protect each user's financial records through authentication, user-scoped database keys, private storage, encryption, and least-privilege IAM permissions.
-7. Demonstrate production software-engineering practices through modular design, automated testing, infrastructure as code, CI/CD, logging, monitoring, and failure handling.
-8. Support future financial-data ingestion through manual entry, CSV imports, receipt extraction, and optional Open Banking integrations.
+The deterministic calculation remains the source of exact balances and warning triggers. The ML probability provides supporting risk information and is not presented as a guaranteed outcome or financial advice.
 
-## Planned user functionality
+## Pipeline architecture and behaviour
 
-- Secure user registration and authentication
-- Add, edit, list, and delete expenses
-- Record guaranteed, likely, and uncertain income
-- Record one-time and recurring financial commitments
-- Calculate safe-to-spend from the lowest projected balance
-- Display a chronological cash-flow timeline
-- Warn about predicted bill shocks and shortfalls
-- Run hypothetical purchase and late-income scenarios
-- Display monthly analytics
-- Upload receipt images securely
-- Export financial records as CSV
-- Receive scheduled shortfall notifications
-- View an ML-generated 30-day shortfall-risk probability
+```mermaid
+flowchart TD
+    U["User"] --> F["React and TypeScript frontend"]
+    F --> C["Amazon Cognito authentication"]
+    C -->|"JWT access token"| A["API Gateway HTTP API"]
+    A --> L["Python Lambda functions"]
 
-## System architecture
+    L --> D["DynamoDB financial records and notifications"]
+    L --> S["Private S3 receipt storage"]
+    L --> T["Amazon Textract receipt analysis"]
+    L --> M["Versioned logistic-regression model in S3"]
 
-```text
-React + TypeScript frontend
-          |
-Amazon Cognito authentication
-          |
-API Gateway HTTP API
-          |
-Python AWS Lambda functions
-          |
-   +------+-------------------+
-   |                          |
-DynamoDB                 Amazon S3
-financial records        receipts and exports
-   |
-Feature generation
-   |
-ML risk model
+    D --> CF["Deterministic cash-flow forecast"]
+    D --> RF["ML risk feature generation"]
+    M --> RF
+    CF --> R["Balance timeline, safe-to-spend and exact shortfall"]
+    RF --> P["Estimated shortfall probability"]
+    R --> F
+    P --> F
 
-EventBridge Scheduler -> warning Lambda -> SNS/SES notifications
-CloudWatch and X-Ray -> logs, metrics, tracing, and alarms
+    E["EventBridge daily schedule"] --> W["Scheduled bill-shock Lambda"]
+    W --> D
+    W --> CF
+    W --> RF
+    W --> N["User-scoped warning stored in DynamoDB"]
+    N --> F
+
+    L --> CW["CloudWatch logs and monitoring"]
+    W --> CW
 ```
 
-### How the system works
+### Behaviour
 
-1. **Frontend:** The React and TypeScript web application lets users manage expenses, expected income, recurring commitments, safety-buffer settings, receipts, and forecast scenarios.
-2. **Authentication:** Amazon Cognito registers users, manages sign-in, and issues JSON Web Tokens. The frontend includes a token with protected API requests.
-3. **API layer:** API Gateway exposes REST-style HTTPS endpoints, validates Cognito tokens, and sends authorised requests to the appropriate Lambda function.
-4. **Application layer:** Python Lambda functions validate requests and coordinate the domain services. The authenticated Cognito user ID is used to scope every database operation.
-5. **Deterministic forecast:** The cash-flow engine orders income, bills, and expenses by date, calculates projected balances, identifies the lowest balance and first shortfall date, and returns the user's safe-to-spend amount.
-6. **Database:** DynamoDB stores expenses, expected income, commitments, preferences, and other structured financial records. Partition keys isolate each user's data, while a secondary index supports chronological queries.
-7. **File storage:** Private S3 buckets store receipt images, uploaded transaction files, generated CSV exports, training datasets, and versioned ML model artifacts. Temporary presigned URLs provide controlled uploads and downloads.
-8. **ML subsystem:** A shared feature builder transforms historical financial records into model inputs. The inference component returns a 30-day shortfall probability alongside the rule-based forecast. If ML inference fails, the deterministic forecast remains available.
-9. **Scheduled warnings:** EventBridge Scheduler invokes a warning Lambda periodically. Users predicted to cross their safety buffer can be notified through Amazon SNS or SES.
-10. **Observability:** CloudWatch collects structured logs, metrics, dashboards, and alarms, while X-Ray traces requests across the serverless components.
-11. **Deployment:** AWS SAM and CloudFormation define the infrastructure. CI/CD will run tests and validation before deploying application and infrastructure changes.
+1. Cognito signs the user in and issues a JWT access token.
+2. The frontend includes the token in protected API requests.
+3. API Gateway authorises the request and routes it to the relevant Lambda function.
+4. Lambda validates the request and uses the authenticated Cognito user ID to isolate all DynamoDB and S3 operations.
+5. DynamoDB stores expenses, income, commitments, warning settings and notifications. Private S3 storage holds receipts and the versioned ML model.
+6. Textract extracts receipt merchant, date and total suggestions. The user reviews the suggestions before they are applied to an expense.
+7. The deterministic forecast orders financial events by date and applies:
 
-### Forecast and ML responsibilities
+   ```text
+   projected balance = opening balance + income - expenses - commitments
+   ```
 
-```text
-Known balance, income, bills, and expenses
-                    |
-          Deterministic forecast
-                    |
-  Safe-to-spend, timeline, and shortfall date
+8. The logistic-regression pipeline transforms the same scenario into numerical features and returns a shortfall probability between 0% and 100%.
+9. EventBridge invokes the warning Lambda daily. A notification is created only when the deterministic forecast predicts that the balance will fall below the safety buffer. The ML percentage is included as supporting information.
+10. The frontend polls for unread notifications and displays the exact shortfall, safety buffer, expected date and ML risk percentage.
 
-Historical patterns and uncertain behaviour
-                    |
-              ML risk model
-                    |
-       30-day shortfall probability
-```
+## Commands to run the system pipeline
 
-The deterministic result answers what will happen if the supplied financial events occur as entered. The ML result estimates additional risk from historical variability and uncertainty. The interface will label them separately rather than presenting an ML probability as a guaranteed outcome.
+### 1. Configure and deploy the AWS backend
 
-## Technology stack
-
-### Backend
-
-- Python 3.12
-- Pydantic for data validation
-- boto3 for AWS access
-- AWS Lambda Powertools for future logging, tracing, and metrics
-- pytest and moto for isolated tests
-
-### AWS
-
-- AWS Lambda
-- API Gateway HTTP API
-- Amazon Cognito
-- Amazon DynamoDB
-- Amazon S3
-- Amazon EventBridge Scheduler
-- Amazon SNS or SES
-- Amazon CloudWatch and AWS X-Ray
-- AWS SAM and CloudFormation
-
-### Frontend
-
-- React
-- TypeScript
-- Vite
-- TanStack Query
-- Recharts
-
-### Machine learning
-
-- pandas and scikit-learn for feature engineering and model training
-- Amazon S3 for versioned training data and model artifacts
-- AWS Lambda for initial serverless inference
-- Amazon SageMaker as an optional later training and model-management platform
-
-
-
-## Local backend setup
+Run these commands from the project root. AWS SAM and an authenticated AWS CLI profile named `flowguard-dev` are required.
 
 ```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
+cd "C:\Users\Rohit Kumar\Documents\FlowGuard-A-Serverless-Cash-Flow-and-Bill-Shock-Prediction-Platform\flowguard"
+
+sam validate --template-file infrastructure\template.yaml --lint --profile flowguard-dev --region eu-west-2
+sam build --template-file infrastructure\template.yaml
+sam deploy --profile flowguard-dev --region eu-west-2
 ```
 
-Run the complete backend test suite:
+### 2. Configure the frontend
+
+Create `frontend\.env.local` from `frontend\.env.example` and replace its placeholders with the API URL, AWS Region, Cognito User Pool ID and Cognito application client ID shown in the CloudFormation deployment outputs.
 
 ```powershell
-python -m pytest -v -p no:cacheprovider
+Copy-Item frontend\.env.example frontend\.env.local
+notepad frontend\.env.local
 ```
 
-The deployed-AWS integration and system tests are opt-in. They discover API
-and Cognito identifiers from the `flowguard-dev` CloudFormation stack, create
-temporary Cognito users and financial records, and clean them up afterward.
+Example structure:
 
-From the `backend` directory, run all deployed-AWS tests with:
-
-```powershell
-python -m pytest tests\integration tests\system --run-aws-tests --aws-profile flowguard-dev --aws-region eu-west-2 --stack-name flowguard-dev -v
+```dotenv
+VITE_API_BASE_URL=https://your-api-id.execute-api.eu-west-2.amazonaws.com/dev
+VITE_AWS_REGION=eu-west-2
+VITE_COGNITO_USER_POOL_ID=eu-west-2_example
+VITE_COGNITO_USER_POOL_CLIENT_ID=exampleclientid
 ```
 
-Run only integration or system tests with:
-
-```powershell
-python -m pytest -m integration --run-aws-tests -v
-python -m pytest -m system --run-aws-tests -v
-```
-
-These tests contact real AWS services and can incur small charges. Never put
-passwords, access tokens, or permanent AWS access keys in the test files.
-
-## Frontend development
-
-The React and TypeScript frontend includes Cognito sign-in and sign-out,
-protected routes, the dashboard shell, complete expense, income, and commitment
-CRUD interfaces, and an interactive deterministic cash-flow forecast with a
-safe-to-spend summary, buffer warnings, chart, and event timeline.
-
-It also includes these user-facing features:
-
-- **Receipt upload:** attach a JPEG, PNG, or PDF receipt (up to 5 MB) to an
-  expense. The file is uploaded directly to a private encrypted S3 bucket using
-  a five-minute signed upload, while DynamoDB stores only its object key. Signed
-  download links are also short-lived. FlowGuard verifies the uploaded file's
-  signature, shows upload progress, and automatically removes the S3 object
-  when its expense is deleted.
-- **Textract receipt suggestions:** after upload, users can select **Scan** to
-  call Amazon Textract `AnalyzeExpense`. FlowGuard extracts the highest-
-  confidence vendor name, receipt date, and total, normalises supported values,
-  and presents them in an editable review dialog. Nothing is written to the
-  expense until the user selects **Apply to expense**; the original receipt
-  remains in private S3 storage.
-- **CSV export:** download the expenses for the selected date range as a CSV
-  file for Excel, Google Sheets, accounting, or personal backups. Monetary
-  values are exported as readable pounds rather than internal minor units.
-- **Monthly analytics:** summarise a selected month using total income, total
-  spending, net cash flow (income minus expenses), savings rate, transaction
-  counts, essential versus discretionary spending, and spending by category.
-  These are descriptive calculations from the user's stored records; they are
-  not ML predictions or financial advice.
-- **Scheduled bill-shock warnings:** an opted-in EventBridge schedule runs at
-  07:00 UTC each day. It uses the user's saved balance, safety buffer and
-  forecast window to run the deterministic forecast. If the projected minimum
-  balance falls below the buffer, a user-scoped notification is stored in
-  DynamoDB. The authenticated React application checks for warnings every
-  minute and shows a dismissible banner. Users configure this under **Warning
-  settings** and should keep their current balance accurate.
-
-The local AWS development identifiers are stored in an ignored `.env.local`
-file. Use `.env.example` when configuring another environment.
+### 3. Run the frontend
 
 ```powershell
 cd frontend
@@ -220,98 +114,50 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` and sign in with a confirmed Cognito application
-user. The SAM API CORS configuration currently allows this origin.
+Open `http://localhost:5173`, sign in with a confirmed FlowGuard Cognito application user, and use the frontend to add financial records and run the pipeline.
 
-Run the frontend checks with:
+### 4. Run the automated checks
+
+Backend tests:
 
 ```powershell
+cd "C:\Users\Rohit Kumar\Documents\FlowGuard-A-Serverless-Cash-Flow-and-Bill-Shock-Prediction-Platform\flowguard\backend"
+.\.venv\Scripts\python.exe -m pytest tests\unit -v
+```
+
+Frontend tests and production build:
+
+```powershell
+cd "C:\Users\Rohit Kumar\Documents\FlowGuard-A-Serverless-Cash-Flow-and-Bill-Shock-Prediction-Platform\flowguard\frontend"
 npm test
 npm run build
 ```
 
-## Infrastructure validation and deployment
-
-From the project root:
+### 5. Manually trigger the scheduled warning pipeline
 
 ```powershell
-sam validate --template-file infrastructure\template.yaml
-sam build --template-file infrastructure\template.yaml
-sam deploy --guided
+cd "C:\Users\Rohit Kumar\Documents\FlowGuard-A-Serverless-Cash-Flow-and-Bill-Shock-Prediction-Platform\flowguard\backend"
+
+$functionName = aws cloudformation describe-stack-resource `
+    --stack-name flowguard-dev `
+    --logical-resource-id ScheduledBillShockFunction `
+    --query "StackResourceDetail.PhysicalResourceId" `
+    --output text `
+    --region eu-west-2 `
+    --profile flowguard-dev
+
+$payload = @{ time = (Get-Date).ToUniversalTime().ToString("o") } | ConvertTo-Json -Compress
+$eventPath = Join-Path $PWD "bill-shock-event.json"
+[System.IO.File]::WriteAllText($eventPath, $payload, [System.Text.UTF8Encoding]::new($false))
+
+aws lambda invoke `
+    --function-name $functionName `
+    --payload "fileb://bill-shock-event.json" `
+    --region eu-west-2 `
+    --profile flowguard-dev `
+    bill-shock-result.json
+
+Get-Content .\bill-shock-result.json
 ```
 
-Deployments create an environment-specific table such as:
-
-```text
-flowguard-financial-records-dev
-```
-
-The table uses on-demand capacity, server-side encryption, point-in-time recovery, and retention policies that protect records if the CloudFormation stack is removed.
-
-## ML baseline
-
-FlowGuard now includes a binary logistic-regression baseline estimating whether
-the user's balance will fall below their safety buffer during the selected
-forecast window. It supplements rather than replaces the deterministic engine.
-The deterministic result explains the scheduled events exactly; ML estimates
-additional uncertainty represented in its training scenarios.
-
-Potential features include:
-
-- Current balance and safety buffer
-- Essential bills due within 30 days
-- Guaranteed and uncertain expected income
-- Days until the next income payment
-- Average expense and income variability
-- Recent minimum balance
-- Previous shortfalls
-- Recent discretionary spending
-
-The reproducible baseline is trained with a fixed seed on 12,000 synthetic
-account scenarios calibrated using the UK Office for National Statistics (ONS)
-Family Spending FYE 2024 Workbook 1, Table 3.1. Its disposable-income deciles,
-total household expenditure, and selected essential-spending categories make
-the scenario distributions more representative of UK household finances. The
-compact source values and provenance are stored in
-`ml/public_data/ons-family-spending-fye2024.json`.
-
-The public ONS rows are aggregate statistics, not individual transaction
-histories. FlowGuard therefore still simulates account balances, payment timing,
-uncertain income, surprise costs, and the shortfall label. The current held-out
-synthetic evaluation produced accuracy 0.9077, precision 0.9492, recall 0.8985,
-F1 0.9232, ROC-AUC 0.9692, and Brier score 0.0697. These metrics measure
-generalisation to unseen scenarios from the same public-calibrated generator;
-they are not evidence of accuracy on real individual bank-account histories.
-
-Train it from the backend virtual environment:
-
-```powershell
-python -m pip install -r requirements-ml.txt
-python ..\ml\train_baseline.py
-```
-
-The script writes a portable JSON model, metrics, and a small evaluation sample
-under `ml/artifacts`. The deployed artifact is stored in a private encrypted,
-versioned S3 bucket. Lambda loads the scaler values and coefficients and performs
-inference without packaging scikit-learn. The authenticated `GET /ml/risk`
-endpoint returns a probability, low/medium/high band, feature values, leading
-factor directions, model version, public-data-informed synthetic label, and
-disclaimer.
-
-## Delivery roadmap
-
-1. Deterministic forecast engine and unit tests
-2. DynamoDB persistence and repository tests
-3. Lambda handlers and REST API
-4. Cognito authentication and user isolation
-5. React cash-flow dashboard
-6. S3 receipt uploads and CSV exports
-7. Scheduled shortfall warnings
-8. Shared ML feature builder
-9. Reproducible model training and evaluation
-10. Serverless ML inference endpoint
-11. CI/CD, security checks, monitoring, and model observability
-
-## Important disclaimer
-
-FlowGuard is an engineering project and forecasting aid, not financial advice. ML predictions are probabilistic and must not be presented as guaranteed outcomes.
+The user must have warnings enabled and a forecast scenario that falls below the safety buffer. FlowGuard creates at most one warning per user and scheduler run date, so rerunning the same date can correctly return `warnings_created: 0`.
