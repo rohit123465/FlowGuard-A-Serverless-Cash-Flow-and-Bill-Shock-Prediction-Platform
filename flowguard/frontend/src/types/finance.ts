@@ -76,11 +76,35 @@ export interface ForecastResult {
   timeline: ForecastEvent[];
 }
 
+export interface RiskPrediction {
+  probability: number;
+  risk_level: "low" | "medium" | "high";
+  model_version: string;
+  model_type: string;
+  training_data: "synthetic";
+  features: Record<string, number>;
+  explanation: string[];
+  disclaimer: string;
+}
+
 export interface ReceiptUploadForm {
   upload_url: string;
   fields: Record<string, string>;
   receipt_key: string;
   expires_in: number;
+}
+
+export interface ReceiptAnalysis {
+  vendor_name: string | null;
+  vendor_confidence: number | null;
+  receipt_date: string | null;
+  date_text: string | null;
+  date_confidence: number | null;
+  total_minor: number | null;
+  total_text: string | null;
+  total_confidence: number | null;
+  currency: string;
+  model_version: string | null;
 }
 
 export interface MonthlyCategory {

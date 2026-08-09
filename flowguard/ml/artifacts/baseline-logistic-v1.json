@@ -1,0 +1,59 @@
+{
+  "model_version": "baseline-logistic-v1",
+  "created_at": "2026-08-09T12:31:31.595254+00:00",
+  "training_data": "synthetic",
+  "label_definition": "simulated balance falls below the safety buffer within the forecast window",
+  "seed": 42,
+  "training_rows": 9000,
+  "feature_names": [
+    "balance_buffer_gap_ratio",
+    "guaranteed_income_ratio",
+    "likely_income_ratio",
+    "expense_outflow_ratio",
+    "commitment_outflow_ratio",
+    "essential_outflow_ratio",
+    "days_to_next_guaranteed_income",
+    "scheduled_event_count"
+  ],
+  "scaler_mean": [
+    0.7907633233838905,
+    1.3724704360543827,
+    0.536951254600157,
+    1.0000704799287379,
+    1.1936237945750103,
+    0.8395163193205059,
+    15.488111111111111,
+    9.522222222222222
+  ],
+  "scaler_scale": [
+    1.0975362833628897,
+    1.0635030410072994,
+    0.4967740550368118,
+    0.7559643778962818,
+    0.9539594820392826,
+    0.6088544192071549,
+    9.297112621602787,
+    5.716482558313854
+  ],
+  "coefficients": [
+    -2.035259859040953,
+    -0.6514275637032483,
+    0.08861583919658667,
+    0.6089079061829515,
+    0.92201581968668,
+    0.17268663969840417,
+    0.3370421126579552,
+    0.11401137207928974
+  ],
+  "intercept": 0.044741952690917686,
+  "metrics": {
+    "accuracy": 0.8107,
+    "precision": 0.808,
+    "recall": 0.8218,
+    "f1": 0.8149,
+    "roc_auc": 0.8958,
+    "brier_score": 0.1306,
+    "positive_rate": 0.507,
+    "test_rows": 3000
+  }
+}

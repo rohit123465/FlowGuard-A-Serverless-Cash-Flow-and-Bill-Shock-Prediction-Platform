@@ -7,12 +7,14 @@ import type {
   ExpenseInput,
   ForecastRequest,
   ForecastResult,
+  RiskPrediction,
   Income,
   IncomeInput,
   MonthlyAnalyticsResult,
   BillShockNotification,
   BillShockSettings,
   ReceiptUploadForm,
+  ReceiptAnalysis,
 } from "../types/finance";
 
 export function expenseApi(getAccessToken: AccessTokenProvider) {
@@ -95,6 +97,22 @@ export function forecastApi(getAccessToken: AccessTokenProvider) {
   };
 }
 
+export function riskApi(getAccessToken: AccessTokenProvider) {
+  const request = createApiClient(getAccessToken);
+  return {
+    predict(input: ForecastRequest) {
+      const query = new URLSearchParams({
+        openingBalanceMinor: String(input.opening_balance_minor),
+        safetyBufferMinor: String(input.safety_buffer_minor),
+        startDate: input.start_date,
+        endDate: input.end_date,
+        includeLikelyIncome: String(input.include_likely_income),
+      });
+      return request<RiskPrediction>(`/ml/risk?${query.toString()}`);
+    },
+  };
+}
+
 export function receiptApi(getAccessToken: AccessTokenProvider) {
   const request = createApiClient(getAccessToken);
   return {
@@ -129,6 +147,9 @@ export function receiptApi(getAccessToken: AccessTokenProvider) {
     },
     getDownload(expenseId: string) {
       return request<{ download_url: string; expires_in: number }>(`/expenses/${expenseId}/receipt`);
+    },
+    analyze(expenseId: string) {
+      return request<ReceiptAnalysis>(`/expenses/${expenseId}/receipt-analyze`, { method: "POST" });
     },
     remove(expenseId: string) {
       return request<void>(`/expenses/${expenseId}/receipt`, { method: "DELETE" });

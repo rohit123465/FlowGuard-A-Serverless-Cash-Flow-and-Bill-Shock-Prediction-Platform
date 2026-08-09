@@ -189,6 +189,12 @@ It also includes these user-facing features:
   download links are also short-lived. FlowGuard verifies the uploaded file's
   signature, shows upload progress, and automatically removes the S3 object
   when its expense is deleted.
+- **Textract receipt suggestions:** after upload, users can select **Scan** to
+  call Amazon Textract `AnalyzeExpense`. FlowGuard extracts the highest-
+  confidence vendor name, receipt date, and total, normalises supported values,
+  and presents them in an editable review dialog. Nothing is written to the
+  expense until the user selects **Apply to expense**; the original receipt
+  remains in private S3 storage.
 - **CSV export:** download the expenses for the selected date range as a CSV
   file for Excel, Google Sheets, accounting, or personal backups. Monetary
   values are exported as readable pounds rather than internal minor units.
@@ -242,9 +248,13 @@ flowguard-financial-records-dev
 
 The table uses on-demand capacity, server-side encryption, point-in-time recovery, and retention policies that protect records if the CloudFormation stack is removed.
 
-## ML deliverable
+## ML baseline
 
-The first model will be a binary classifier predicting whether the user's balance will fall below their safety buffer in the next 30 days.
+FlowGuard now includes a binary logistic-regression baseline estimating whether
+the user's balance will fall below their safety buffer during the selected
+forecast window. It supplements rather than replaces the deterministic engine.
+The deterministic result explains the scheduled events exactly; ML estimates
+additional uncertainty represented in its training scenarios.
 
 Potential features include:
 
@@ -257,7 +267,25 @@ Potential features include:
 - Previous shortfalls
 - Recent discretionary spending
 
-The first baseline will use logistic regression. It can then be compared with tree-based models using precision, recall, F1, ROC-AUC, calibration, and a confusion matrix. Synthetic data will be clearly identified as demonstration data until the model is evaluated using representative, consented data.
+The reproducible baseline is trained with a fixed seed on 12,000 explicitly
+synthetic scenarios. The first held-out evaluation produced accuracy 0.8107,
+precision 0.8080, recall 0.8218, F1 0.8149, ROC-AUC 0.8958, and Brier score
+0.1306. These results measure performance on simulated data only and must not be
+presented as evidence of real-world financial accuracy.
+
+Train it from the backend virtual environment:
+
+```powershell
+python -m pip install -r requirements-ml.txt
+python ..\ml\train_baseline.py
+```
+
+The script writes a portable JSON model, metrics, and a small evaluation sample
+under `ml/artifacts`. The deployed artifact is stored in a private encrypted,
+versioned S3 bucket. Lambda loads the scaler values and coefficients and performs
+inference without packaging scikit-learn. The authenticated `GET /ml/risk`
+endpoint returns a probability, low/medium/high band, feature values, leading
+factor directions, model version, synthetic-data label, and disclaimer.
 
 ## Delivery roadmap
 

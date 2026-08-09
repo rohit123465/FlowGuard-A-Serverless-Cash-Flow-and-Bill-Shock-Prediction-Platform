@@ -107,6 +107,12 @@ input:focus,select:focus { border-color:var(--green); box-shadow:0 0 0 3px #1b74
 .receipt-control { display:flex; gap:.45rem; align-items:center; position:relative; }
 .receipt-control button { white-space:nowrap; }
 .receipt-error { position:absolute; top:1.3rem; right:0; width:190px; padding:.35rem; border-radius:6px; background:#fff0ed; color:#a34036; font-size:.66rem; z-index:4; }
+.receipt-analysis { padding:1.4rem; text-align:left; }
+.receipt-analysis .panel-heading { margin:-1.4rem -1.4rem 0; }
+.receipt-analysis-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1.2rem 0; }
+.receipt-analysis-grid label:first-child { grid-column:1/-1; }
+.receipt-analysis-grid small { display:block; color:#6e817e; margin-top:.35rem; font-weight:400; }
+.receipt-analysis-actions { display:flex; justify-content:flex-end; gap:.7rem; }
 .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
 .empty-state { padding:4rem 1rem; text-align:center; color:#718480; }
 .empty-state h3 { color:var(--ink); margin:.6rem 0 .2rem; }
@@ -175,6 +181,11 @@ input:focus,select:focus { border-color:var(--green); box-shadow:0 0 0 3px #1b74
 .event-dot { width:9px; height:9px; border-radius:50%; background:#668; }
 .event-dot.income { background:#2b8a68; }.event-dot.expense { background:#cf704d; }.event-dot.commitment { background:#8b6aae; }
 .forecast-note { background:#edf4f0; color:#4e6b64; border:1px solid #d2e4da; }
+.risk-card { border:1px solid var(--line); border-left:6px solid #5b8878; background:var(--paper); border-radius:16px; padding:1.25rem; display:grid; grid-template-columns:minmax(180px,.8fr) 1.2fr; gap:1.2rem; }
+.risk-card.medium { border-left-color:#d49a3e; }.risk-card.high { border-left-color:#c75948; }
+.risk-card h2 { margin:.35rem 0; font-size:1.55rem; }.risk-level { text-transform:uppercase; font-weight:800; font-size:.68rem; letter-spacing:.08em; }
+.risk-card ul { margin:.55rem 0 0; padding-left:1.1rem; color:#526c67; }.risk-card li { margin:.35rem 0; }
+.risk-card footer { grid-column:1/-1; border-top:1px solid var(--line); padding-top:.75rem; color:#6a7e7a; font-size:.72rem; }.risk-card footer p { margin:.3rem 0 0; }
 .negative { color:#b34b3d; }
 .month-picker.standalone { width:180px; }
 .analytics-summary { grid-template-columns:repeat(3,1fr); }

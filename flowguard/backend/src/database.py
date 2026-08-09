@@ -30,3 +30,10 @@ def get_s3_client():
         s3={"addressing_style": "virtual"},
     )
     return boto3.client("s3", **client_arguments)
+
+
+@lru_cache
+def get_textract_client():
+    settings = get_settings()
+    arguments = {"region_name": settings.aws_region} if settings.aws_region else {}
+    return boto3.client("textract", **arguments)

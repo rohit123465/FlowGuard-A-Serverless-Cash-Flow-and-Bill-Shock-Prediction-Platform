@@ -118,6 +118,28 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  ModelBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Application
+          Value: FlowGuard
+        - Key: Purpose
+          Value: MLModelArtifacts
+
   FlowGuardUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -384,6 +406,10 @@ Resources:
                 - s3:PutObject
                 - s3:DeleteObject
               Resource: !Sub ${ReceiptBucket.Arn}/receipts/*
+            - Effect: Allow
+              Action:
+                - textract:AnalyzeExpense
+              Resource: "*"
       Events:
         CreateReceiptUpload:
           Type: HttpApi
@@ -405,6 +431,13 @@ Resources:
             ApiId: !Ref FlowGuardHttpApi
             Method: GET
             Path: /expenses/{expenseId}/receipt
+            PayloadFormatVersion: "2.0"
+        AnalyzeReceipt:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: POST
+            Path: /expenses/{expenseId}/receipt-analyze
             PayloadFormatVersion: "2.0"
         DeleteReceipt:
           Type: HttpApi
@@ -528,6 +561,36 @@ Resources:
             Description: Run conservative bill-shock forecasts for opted-in users daily
             Enabled: true
 
+  RiskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: src.handlers.risk.handler
+      Environment:
+        Variables:
+          MODEL_BUCKET_NAME: !Ref ModelBucket
+          MODEL_OBJECT_KEY: models/baseline-logistic-v1.json
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt FinancialRecordsTable.Arn
+                - !Sub ${FinancialRecordsTable.Arn}/index/*
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub ${ModelBucket.Arn}/models/*
+      Events:
+        GetRiskPrediction:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowGuardHttpApi
+            Method: GET
+            Path: /ml/risk
+            PayloadFormatVersion: "2.0"
+
 Outputs:
   FinancialRecordsTableName:
     Description: DynamoDB table containing FlowGuard financial records
@@ -547,3 +610,6 @@ Outputs:
   ReceiptBucketName:
     Description: Private S3 bucket containing uploaded expense receipts
     Value: !Ref ReceiptBucket
+  ModelBucketName:
+    Description: Private versioned S3 bucket containing ML model artifacts
+    Value: !Ref ModelBucket

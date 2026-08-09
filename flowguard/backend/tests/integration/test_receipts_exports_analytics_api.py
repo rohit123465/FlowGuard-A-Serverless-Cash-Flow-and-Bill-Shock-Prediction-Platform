@@ -79,6 +79,11 @@ def test_receipt_csv_and_monthly_analytics_against_aws(api_client: ApiClient) ->
             201,
         ).body["data"]
         expense_id = expense["expense_id"]
+        api_client.request(
+            "POST",
+            f"/expenses/{expense_id}/receipt-analyze",
+            expected_status=404,
+        )
         income = api_client.request(
             "POST",
             "/income",

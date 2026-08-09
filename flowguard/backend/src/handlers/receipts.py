@@ -1,8 +1,10 @@
 from typing import Any
 
+from botocore.exceptions import ClientError
+
 from ..auth import get_user_id
 from ..config import get_settings
-from ..database import get_repository, get_s3_client
+from ..database import get_repository, get_s3_client, get_textract_client
 from ..handler_utils import api_handler, get_path_uuid, get_route_key, model_data, parse_json_body
 from ..models.receipt import ReceiptConfirmRequest, ReceiptUploadRequest
 from ..repositories.financial_repository import RecordNotFoundError
@@ -13,6 +15,7 @@ from ..services.receipt_service import (
     validate_receipt,
     validate_receipt_signature,
 )
+from ..services.textract_service import parse_expense_analysis
 
 
 def _expense_or_404(user_id, expense_id):
@@ -92,6 +95,23 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             ExpiresIn=PRESIGNED_URL_SECONDS,
         )
         return json_response(200, {"download_url": url, "expires_in": PRESIGNED_URL_SECONDS})
+
+    if route_key == "POST /expenses/{expenseId}/receipt-analyze":
+        if not expense.receipt_key:
+            raise RecordNotFoundError("expense has no receipt")
+        try:
+            result = get_textract_client().analyze_expense(
+                Document={"S3Object": {"Bucket": settings.receipt_bucket_name, "Name": expense.receipt_key}}
+            )
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] in {
+                "BadDocumentException",
+                "DocumentTooLargeException",
+                "UnsupportedDocumentException",
+            }:
+                raise ValueError("Textract could not read this receipt; try a clearer single-page image or PDF") from exc
+            raise
+        return json_response(200, model_data(parse_expense_analysis(result)))
 
     if route_key == "DELETE /expenses/{expenseId}/receipt":
         if not expense.receipt_key:
