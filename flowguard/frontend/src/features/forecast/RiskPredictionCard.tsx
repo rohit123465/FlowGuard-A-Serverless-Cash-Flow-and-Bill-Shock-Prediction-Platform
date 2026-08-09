@@ -46,6 +46,6 @@ export function RiskPredictionCard({ prediction }: { prediction: RiskPrediction 
       <p>Try the relevant actions below, then run the forecast again to compare the percentage.</p>
       <ol>{guidance.map((item) => <li key={item}>{item}</li>)}</ol>
     </aside>
-    <footer><strong>{prediction.model_version}</strong> · Logistic regression · Synthetic training data<p>{prediction.disclaimer}</p></footer>
+    <footer><strong>{prediction.model_version}</strong> · Logistic regression · {prediction.training_data}<p>{prediction.disclaimer}</p></footer>
   </section>;
 }

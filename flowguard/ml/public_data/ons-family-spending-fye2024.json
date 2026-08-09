@@ -1,0 +1,22 @@
+{
+  "title": "Family Spending Workbook 1 - Detailed Expenditure and Trends, Table 3.1",
+  "publisher": "Office for National Statistics",
+  "geography": "United Kingdom",
+  "period": "financial year ending 2024",
+  "source_url": "https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook1detailedexpenditureandtrends/fye2024/workbook1detailedexpenditureandtrends.xlsx",
+  "retrieved_on": "2026-08-09",
+  "units": "GBP per household per week",
+  "notes": "Published aggregate decile statistics, not individual transaction or account histories. Essential expenditure is defined by FlowGuard as ONS categories 1, 4, 7 and 8 for calibration purposes.",
+  "deciles": [
+    {"mean_disposable_income": 178.0, "total_expenditure": 306.7, "essential_expenditure": 165.8},
+    {"mean_disposable_income": 339.0, "total_expenditure": 317.7, "essential_expenditure": 177.4},
+    {"mean_disposable_income": 445.0, "total_expenditure": 429.7, "essential_expenditure": 226.9},
+    {"mean_disposable_income": 556.0, "total_expenditure": 483.2, "essential_expenditure": 249.0},
+    {"mean_disposable_income": 677.0, "total_expenditure": 568.5, "essential_expenditure": 287.2},
+    {"mean_disposable_income": 813.0, "total_expenditure": 606.8, "essential_expenditure": 305.4},
+    {"mean_disposable_income": 964.0, "total_expenditure": 695.9, "essential_expenditure": 327.2},
+    {"mean_disposable_income": 1150.0, "total_expenditure": 753.1, "essential_expenditure": 340.1},
+    {"mean_disposable_income": 1446.0, "total_expenditure": 878.4, "essential_expenditure": 388.5},
+    {"mean_disposable_income": 2306.0, "total_expenditure": 1195.2, "essential_expenditure": 475.9}
+  ]
+}

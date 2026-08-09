@@ -1,4 +1,4 @@
-"""Train FlowGuard's reproducible synthetic logistic-regression baseline."""
+"""Train FlowGuard's ONS-calibrated synthetic logistic-regression risk model."""
 
 import argparse
 import csv
@@ -20,46 +20,108 @@ FEATURE_NAMES = [
     "expense_outflow_ratio", "commitment_outflow_ratio", "essential_outflow_ratio",
     "days_to_next_guaranteed_income", "scheduled_event_count",
 ]
+DEFAULT_PUBLIC_DATA = Path(__file__).parent / "public_data" / "ons-family-spending-fye2024.json"
+MODEL_VERSION = "baseline-logistic-v2-ons-calibrated"
 
 
-def generate_synthetic_scenarios(rows: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
+def load_public_calibration(path: Path) -> dict:
+    calibration = json.loads(path.read_text(encoding="utf-8"))
+    if len(calibration.get("deciles", [])) != 10:
+        raise ValueError("public calibration must contain ten income deciles")
+    return calibration
+
+
+def _falls_below_buffer(
+    rng: np.random.Generator,
+    opening: float,
+    buffer: float,
+    guaranteed: float,
+    likely: float,
+    outflow: float,
+    income_day: int,
+    event_count: int,
+) -> int:
+    events: list[tuple[int, float]] = [(income_day, guaranteed)]
+    if rng.random() >= 0.35:  # uncertain income sometimes arrives late or outside the window
+        events.append((int(rng.integers(0, 31)), likely))
+    pieces = max(1, event_count - 2)
+    weights = rng.dirichlet(np.ones(pieces))
+    events.extend((int(rng.integers(0, 31)), -outflow * weight) for weight in weights)
+    surprise = rng.gamma(1.15, outflow * 0.045)
+    events.append((int(rng.integers(0, 31)), -surprise))
+    balance = opening
+    minimum = opening
+    for _, amount in sorted(events, key=lambda item: item[0]):
+        balance += amount
+        minimum = min(minimum, balance)
+    return int(minimum < buffer)
+
+
+def generate_public_calibrated_scenarios(
+    rows: int, seed: int, calibration: dict
+) -> tuple[np.ndarray, np.ndarray]:
+    """Generate account scenarios whose income/outgoings follow ONS decile aggregates.
+
+    ONS rows are aggregate household statistics, so they calibrate distributions;
+    they are not copied or represented as individual bank-account observations.
+    """
     rng = np.random.default_rng(seed)
-    gap = rng.normal(0.8, 1.1, rows)
-    guaranteed = rng.gamma(1.7, 0.8, rows)
-    likely = rng.gamma(1.2, 0.45, rows)
-    expenses = rng.gamma(1.8, 0.55, rows)
-    commitments = rng.gamma(1.6, 0.75, rows)
-    essential = np.minimum(expenses + commitments, rng.gamma(1.5, 0.65, rows))
-    days = rng.integers(0, 32, rows).astype(float)
-    events = rng.integers(0, 20, rows).astype(float)
-    x = np.column_stack([gap, guaranteed, likely, expenses, commitments, essential, days, events])
+    deciles = calibration["deciles"]
+    x = np.zeros((rows, len(FEATURE_NAMES)), dtype=float)
+    y = np.zeros(rows, dtype=int)
+    weeks_per_month = 52 / 12
 
-    # Simulates uncertainty unavailable to the deterministic forecast: surprise
-    # costs and likely income failing to arrive. Labels remain synthetic.
-    late_likely_income = rng.binomial(1, 0.35, rows) * likely
-    surprise_outflow = rng.gamma(1.1, 0.35, rows)
-    latent = (
-        -1.0 - 2.0 * gap - 0.65 * guaranteed - 0.12 * likely
-        + 0.8 * expenses + 1.05 * commitments + 0.35 * essential
-        + 0.035 * days + 0.025 * events + 0.75 * late_likely_income
-        + 0.9 * surprise_outflow + rng.normal(0, 0.55, rows)
-    )
-    probability = 1 / (1 + np.exp(-np.clip(latent, -30, 30)))
-    return x, rng.binomial(1, probability).astype(int)
+    for index in range(rows):
+        decile = deciles[int(rng.integers(0, len(deciles)))]
+        monthly_income = decile["mean_disposable_income"] * weeks_per_month * rng.lognormal(0, 0.20)
+        monthly_outflow = decile["total_expenditure"] * weeks_per_month * rng.lognormal(0, 0.18)
+        essential_share = min(1.0, decile["essential_expenditure"] / decile["total_expenditure"])
+
+        likely_share = rng.beta(1.4, 8.0) * 0.45
+        guaranteed = monthly_income * (1 - likely_share)
+        likely = monthly_income * likely_share
+        commitment_share = rng.uniform(0.42, 0.72)
+        commitments = monthly_outflow * commitment_share
+        expenses = monthly_outflow - commitments
+        essential = monthly_outflow * np.clip(rng.normal(essential_share, 0.06), 0.2, 0.95)
+
+        safety_buffer = monthly_income * rng.uniform(0.10, 0.55)
+        opening = monthly_income * rng.lognormal(-0.65, 0.75)
+        scale = max(abs(opening), safety_buffer, 100.0)
+        income_day = int(rng.integers(0, 31))
+        event_count = int(np.clip(rng.poisson(8) + 2, 2, 24))
+
+        x[index] = [
+            (opening - safety_buffer) / scale,
+            guaranteed / scale,
+            likely / scale,
+            expenses / scale,
+            commitments / scale,
+            essential / scale,
+            float(income_day),
+            float(event_count),
+        ]
+        y[index] = _falls_below_buffer(
+            rng, opening, safety_buffer, guaranteed, likely,
+            monthly_outflow, income_day, event_count,
+        )
+    return x, y
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rows", type=int, default=12_000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--public-data", type=Path, default=DEFAULT_PUBLIC_DATA)
     parser.add_argument("--output-dir", type=Path, default=Path(__file__).parent / "artifacts")
     parser.add_argument("--upload-bucket")
-    parser.add_argument("--upload-key", default="models/baseline-logistic-v1.json")
+    parser.add_argument("--upload-key", default=f"models/{MODEL_VERSION}.json")
     parser.add_argument("--profile", default="flowguard-dev")
     parser.add_argument("--region", default="eu-west-2")
     args = parser.parse_args()
 
-    x, y = generate_synthetic_scenarios(args.rows, args.seed)
+    calibration = load_public_calibration(args.public_data)
+    x, y = generate_public_calibrated_scenarios(args.rows, args.seed, calibration)
     x_train, x_test, y_train, y_test = train_test_split(
         x, y, test_size=0.25, random_state=args.seed, stratify=y
     )
@@ -83,10 +145,16 @@ def main() -> None:
     scaler = pipeline.named_steps["scaler"]
     model = pipeline.named_steps["model"]
     artifact = {
-        "model_version": "baseline-logistic-v1",
+        "model_version": MODEL_VERSION,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "training_data": "synthetic",
-        "label_definition": "simulated balance falls below the safety buffer within the forecast window",
+        "training_data": "public-data-informed synthetic scenarios",
+        "public_data": {
+            "publisher": calibration["publisher"],
+            "title": calibration["title"],
+            "period": calibration["period"],
+            "source_url": calibration["source_url"],
+        },
+        "label_definition": "simulated balance falls below the safety buffer within a 30-day forecast window",
         "seed": args.seed,
         "training_rows": len(y_train),
         "feature_names": FEATURE_NAMES,
@@ -97,11 +165,12 @@ def main() -> None:
         "metrics": metrics,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    model_path = args.output_dir / "baseline-logistic-v1.json"
+    model_path = args.output_dir / f"{MODEL_VERSION}.json"
     model_path.write_text(json.dumps(artifact, indent=2), encoding="utf-8")
     (args.output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    with (args.output_dir / "synthetic-evaluation-sample.csv").open("w", newline="", encoding="utf-8") as output:
-        writer = csv.writer(output); writer.writerow([*FEATURE_NAMES, "label"])
+    with (args.output_dir / "public-calibrated-evaluation-sample.csv").open("w", newline="", encoding="utf-8") as output:
+        writer = csv.writer(output)
+        writer.writerow([*FEATURE_NAMES, "label"])
         writer.writerows([*row, int(label)] for row, label in zip(x_test[:500], y_test[:500], strict=True))
     print(json.dumps(metrics, indent=2))
     if args.upload_bucket:

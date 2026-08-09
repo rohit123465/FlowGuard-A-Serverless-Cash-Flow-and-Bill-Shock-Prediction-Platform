@@ -25,6 +25,8 @@ class BillShockNotification(BaseModel):
     shortfall_amount_minor: int = Field(gt=0)
     minimum_balance_minor: int
     safety_buffer_minor: int = Field(ge=0)
+    risk_probability: float | None = Field(default=None, ge=0, le=1)
+    risk_model_version: str | None = None
     read: bool = False
 
 

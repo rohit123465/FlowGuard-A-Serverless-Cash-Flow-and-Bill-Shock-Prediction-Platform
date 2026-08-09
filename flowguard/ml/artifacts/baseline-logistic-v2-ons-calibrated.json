@@ -1,0 +1,65 @@
+{
+  "model_version": "baseline-logistic-v2-ons-calibrated",
+  "created_at": "2026-08-09T15:04:30.753323+00:00",
+  "training_data": "public-data-informed synthetic scenarios",
+  "public_data": {
+    "publisher": "Office for National Statistics",
+    "title": "Family Spending Workbook 1 - Detailed Expenditure and Trends, Table 3.1",
+    "period": "financial year ending 2024",
+    "source_url": "https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook1detailedexpenditureandtrends/fye2024/workbook1detailedexpenditureandtrends.xlsx"
+  },
+  "label_definition": "simulated balance falls below the safety buffer within a 30-day forecast window",
+  "seed": 42,
+  "training_rows": 9000,
+  "feature_names": [
+    "balance_buffer_gap_ratio",
+    "guaranteed_income_ratio",
+    "likely_income_ratio",
+    "expense_outflow_ratio",
+    "commitment_outflow_ratio",
+    "essential_outflow_ratio",
+    "days_to_next_guaranteed_income",
+    "scheduled_event_count"
+  ],
+  "scaler_mean": [
+    0.30173217851410095,
+    1.8420639820920506,
+    0.13299356513012722,
+    0.7570008406906684,
+    1.001110325792602,
+    0.8867331540933439,
+    14.988444444444445,
+    9.973
+  ],
+  "scaler_scale": [
+    0.4660137147843365,
+    1.0798438796838863,
+    0.13633486988558974,
+    0.6449338169422295,
+    0.8299418663236633,
+    0.7758327715889504,
+    8.991297015708605,
+    2.819386044277571
+  ],
+  "coefficients": [
+    -3.3929187340428686,
+    -0.8595147239906624,
+    -0.22330097066262483,
+    1.281123319949765,
+    1.9479795882983058,
+    1.0039346352441818,
+    1.8528403343786357,
+    0.0031788834519761956
+  ],
+  "intercept": 2.1399759609253097,
+  "metrics": {
+    "accuracy": 0.9077,
+    "precision": 0.9492,
+    "recall": 0.8985,
+    "f1": 0.9232,
+    "roc_auc": 0.9692,
+    "brier_score": 0.0697,
+    "positive_rate": 0.6174,
+    "test_rows": 3000
+  }
+}

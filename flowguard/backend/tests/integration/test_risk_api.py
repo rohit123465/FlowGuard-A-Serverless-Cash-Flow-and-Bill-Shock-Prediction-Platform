@@ -34,9 +34,9 @@ def test_logistic_baseline_against_deployed_api(api_client: ApiClient) -> None:
         ).body["data"]
         assert 0 <= result["probability"] <= 1
         assert result["risk_level"] in {"low", "medium", "high"}
-        assert result["model_version"] == "baseline-logistic-v1"
+        assert result["model_version"] == "baseline-logistic-v2-ons-calibrated"
         assert result["model_type"] == "logistic_regression"
-        assert result["training_data"] == "synthetic"
+        assert result["training_data"] == "public-data-informed synthetic scenarios"
         assert result["features"]["commitment_outflow_ratio"] == 1.5
         assert len(result["explanation"]) == 3
     finally:

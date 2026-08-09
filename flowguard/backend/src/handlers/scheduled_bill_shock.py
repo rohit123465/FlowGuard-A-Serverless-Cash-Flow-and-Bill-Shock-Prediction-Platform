@@ -3,12 +3,14 @@ from typing import Any
 
 from ..database import get_repository
 from ..services.notification_service import evaluate_bill_shock
+from ..services.risk_model_service import load_risk_model
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     del context
     run_date = date.fromisoformat(event["time"][:10]) if event.get("time") else date.today()
     repository = get_repository()
+    risk_model = load_risk_model()
     evaluated = 0
     warnings_created = 0
     for subscription in repository.list_enabled_bill_shock_settings():
@@ -18,6 +20,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
             subscription.user_id,
             subscription.settings,
             run_date,
+            risk_model,
         ):
             warnings_created += 1
     return {"users_evaluated": evaluated, "warnings_created": warnings_created}

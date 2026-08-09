@@ -543,6 +543,10 @@ Resources:
       CodeUri: ../backend/
       Handler: src.handlers.scheduled_bill_shock.handler
       Timeout: 60
+      Environment:
+        Variables:
+          MODEL_BUCKET_NAME: !Ref ModelBucket
+          MODEL_OBJECT_KEY: models/baseline-logistic-v2-ons-calibrated.json
       Policies:
         - Statement:
             - Effect: Allow
@@ -553,6 +557,10 @@ Resources:
               Resource:
                 - !GetAtt FinancialRecordsTable.Arn
                 - !Sub ${FinancialRecordsTable.Arn}/index/*
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub ${ModelBucket.Arn}/models/*
       Events:
         DailyBillShockCheck:
           Type: Schedule
@@ -569,7 +577,7 @@ Resources:
       Environment:
         Variables:
           MODEL_BUCKET_NAME: !Ref ModelBucket
-          MODEL_OBJECT_KEY: models/baseline-logistic-v1.json
+          MODEL_OBJECT_KEY: models/baseline-logistic-v2-ons-calibrated.json
       Policies:
         - Statement:
             - Effect: Allow

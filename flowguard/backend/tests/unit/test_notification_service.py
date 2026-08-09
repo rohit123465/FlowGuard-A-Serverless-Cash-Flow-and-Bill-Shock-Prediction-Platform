@@ -1,4 +1,6 @@
+import json
 from datetime import date
+from pathlib import Path
 
 import boto3
 from moto import mock_aws
@@ -69,13 +71,18 @@ def test_daily_evaluation_creates_and_deduplicates_warning() -> None:
         ),
     )
 
-    warning = evaluate_bill_shock(repository, "user-a", settings, date(2032, 5, 1))
+    model_path = Path(__file__).parents[3] / "ml" / "artifacts" / "baseline-logistic-v2-ons-calibrated.json"
+    risk_model = json.loads(model_path.read_text(encoding="utf-8"))
+    warning = evaluate_bill_shock(repository, "user-a", settings, date(2032, 5, 1), risk_model)
     assert warning is not None
     assert warning.first_shortfall_date == date(2032, 5, 10)
     assert warning.shortfall_amount_minor == 3_000
+    assert warning.risk_probability is not None
+    assert 0 <= warning.risk_probability <= 1
+    assert warning.risk_model_version == "baseline-logistic-v2-ons-calibrated"
     assert len(repository.list_notifications("user-a")) == 1
 
-    assert evaluate_bill_shock(repository, "user-a", settings, date(2032, 5, 1)) is None
+    assert evaluate_bill_shock(repository, "user-a", settings, date(2032, 5, 1), risk_model) is None
     assert len(repository.list_notifications("user-a")) == 1
     assert repository.list_enabled_bill_shock_settings()[0].user_id == "user-a"
 

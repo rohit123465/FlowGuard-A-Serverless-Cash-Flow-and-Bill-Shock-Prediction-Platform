@@ -56,8 +56,8 @@ def predict_risk(features: dict[str, float], model: dict[str, Any]) -> RiskPredi
         risk_level=risk_level,
         model_version=model["model_version"],
         model_type="logistic_regression",
-        training_data="synthetic",
+        training_data=model.get("training_data", "synthetic"),
         features={name: round(features[name], 4) for name in names},
         explanation=explanation,
-        disclaimer="Experimental estimate trained on synthetic scenarios; not financial advice or a guaranteed outcome.",
+        disclaimer="Experimental estimate trained on ONS-calibrated synthetic scenarios; not validated on individual bank-account histories, financial advice, or a guaranteed outcome.",
     )

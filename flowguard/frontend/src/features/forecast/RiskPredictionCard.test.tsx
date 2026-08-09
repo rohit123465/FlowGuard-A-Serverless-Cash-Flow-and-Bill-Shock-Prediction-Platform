@@ -3,19 +3,19 @@ import { describe, expect, it } from "vitest";
 import { RiskPredictionCard } from "./RiskPredictionCard";
 
 describe("RiskPredictionCard", () => {
-  it("labels the probability as experimental and synthetic", () => {
+  it("labels the probability as experimental and public-data-informed synthetic", () => {
     render(<RiskPredictionCard prediction={{
       probability: 0.734,
       risk_level: "high",
-      model_version: "baseline-logistic-v1",
+      model_version: "baseline-logistic-v2-ons-calibrated",
       model_type: "logistic_regression",
-      training_data: "synthetic",
+      training_data: "public-data-informed synthetic scenarios",
       features: {},
       explanation: ["upcoming commitments increased estimated risk"],
       disclaimer: "Experimental estimate trained on synthetic scenarios; not financial advice.",
     }} />);
     expect(screen.getByText("73% estimated shortfall risk")).toBeInTheDocument();
-    expect(screen.getByText(/Synthetic training data/i)).toBeInTheDocument();
+    expect(screen.getByText(/public-data-informed synthetic scenarios/i)).toBeInTheDocument();
     expect(screen.getByText(/not financial advice/i)).toBeInTheDocument();
   });
 
@@ -23,9 +23,9 @@ describe("RiskPredictionCard", () => {
     render(<RiskPredictionCard prediction={{
       probability: 0.82,
       risk_level: "high",
-      model_version: "baseline-logistic-v1",
+      model_version: "baseline-logistic-v2-ons-calibrated",
       model_type: "logistic_regression",
-      training_data: "synthetic",
+      training_data: "public-data-informed synthetic scenarios",
       features: {
         balance_buffer_gap_ratio: -0.25,
         commitment_outflow_ratio: 0.8,

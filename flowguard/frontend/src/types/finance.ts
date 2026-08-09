@@ -81,7 +81,7 @@ export interface RiskPrediction {
   risk_level: "low" | "medium" | "high";
   model_version: string;
   model_type: string;
-  training_data: "synthetic";
+  training_data: string;
   features: Record<string, number>;
   explanation: string[];
   disclaimer: string;
@@ -145,5 +145,7 @@ export interface BillShockNotification {
   shortfall_amount_minor: number;
   minimum_balance_minor: number;
   safety_buffer_minor: number;
+  risk_probability: number | null;
+  risk_model_version: string | null;
   read: boolean;
 }

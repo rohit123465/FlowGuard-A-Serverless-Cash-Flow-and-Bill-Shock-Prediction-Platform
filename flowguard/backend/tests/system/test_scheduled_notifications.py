@@ -57,6 +57,8 @@ def test_scheduled_warning_reaches_authenticated_frontend_api(
         assert len(warnings) == 1
         assert warnings[0]["first_shortfall_date"] == due_date.isoformat()
         assert warnings[0]["shortfall_amount_minor"] == 15_000
+        assert 0 <= warnings[0]["risk_probability"] <= 1
+        assert warnings[0]["risk_model_version"] == "baseline-logistic-v2-ons-calibrated"
         client.request(
             "PUT",
             f"/notifications/{warnings[0]['notification_id']}/read",

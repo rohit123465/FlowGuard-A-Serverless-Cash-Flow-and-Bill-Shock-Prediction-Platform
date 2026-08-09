@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from datetime import date
+from decimal import Decimal
 from typing import Any, TypeVar
 from uuid import UUID
 
@@ -427,6 +428,8 @@ class FinancialRepository:
             "shortfallAmountMinor": notification.shortfall_amount_minor,
             "minimumBalanceMinor": notification.minimum_balance_minor,
             "safetyBufferMinor": notification.safety_buffer_minor,
+            "riskProbability": Decimal(str(notification.risk_probability)) if notification.risk_probability is not None else None,
+            "riskModelVersion": notification.risk_model_version,
             "read": notification.read,
         }
         try:
@@ -451,6 +454,8 @@ class FinancialRepository:
             shortfall_amount_minor=item["shortfallAmountMinor"],
             minimum_balance_minor=item["minimumBalanceMinor"],
             safety_buffer_minor=item["safetyBufferMinor"],
+            risk_probability=item.get("riskProbability"),
+            risk_model_version=item.get("riskModelVersion"),
             read=item.get("read", False),
         )
 

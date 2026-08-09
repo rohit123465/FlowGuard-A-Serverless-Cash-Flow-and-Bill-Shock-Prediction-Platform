@@ -267,11 +267,21 @@ Potential features include:
 - Previous shortfalls
 - Recent discretionary spending
 
-The reproducible baseline is trained with a fixed seed on 12,000 explicitly
-synthetic scenarios. The first held-out evaluation produced accuracy 0.8107,
-precision 0.8080, recall 0.8218, F1 0.8149, ROC-AUC 0.8958, and Brier score
-0.1306. These results measure performance on simulated data only and must not be
-presented as evidence of real-world financial accuracy.
+The reproducible baseline is trained with a fixed seed on 12,000 synthetic
+account scenarios calibrated using the UK Office for National Statistics (ONS)
+Family Spending FYE 2024 Workbook 1, Table 3.1. Its disposable-income deciles,
+total household expenditure, and selected essential-spending categories make
+the scenario distributions more representative of UK household finances. The
+compact source values and provenance are stored in
+`ml/public_data/ons-family-spending-fye2024.json`.
+
+The public ONS rows are aggregate statistics, not individual transaction
+histories. FlowGuard therefore still simulates account balances, payment timing,
+uncertain income, surprise costs, and the shortfall label. The current held-out
+synthetic evaluation produced accuracy 0.9077, precision 0.9492, recall 0.8985,
+F1 0.9232, ROC-AUC 0.9692, and Brier score 0.0697. These metrics measure
+generalisation to unseen scenarios from the same public-calibrated generator;
+they are not evidence of accuracy on real individual bank-account histories.
 
 Train it from the backend virtual environment:
 
@@ -285,7 +295,8 @@ under `ml/artifacts`. The deployed artifact is stored in a private encrypted,
 versioned S3 bucket. Lambda loads the scaler values and coefficients and performs
 inference without packaging scikit-learn. The authenticated `GET /ml/risk`
 endpoint returns a probability, low/medium/high band, feature values, leading
-factor directions, model version, synthetic-data label, and disclaimer.
+factor directions, model version, public-data-informed synthetic label, and
+disclaimer.
 
 ## Delivery roadmap
 

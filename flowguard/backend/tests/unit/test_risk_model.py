@@ -32,18 +32,18 @@ def test_shared_feature_builder_uses_financial_records() -> None:
 
 
 def test_trained_baseline_returns_bounded_explainable_probability() -> None:
-    artifact_path = Path(__file__).parents[3] / "ml" / "artifacts" / "baseline-logistic-v1.json"
+    artifact_path = Path(__file__).parents[3] / "ml" / "artifacts" / "baseline-logistic-v2-ons-calibrated.json"
     model = json.loads(artifact_path.read_text(encoding="utf-8"))
     features = dict.fromkeys(model["feature_names"], 0.0)
     prediction = predict_risk(features, model)
     assert 0 <= prediction.probability <= 1
     assert prediction.risk_level in {"low", "medium", "high"}
-    assert prediction.training_data == "synthetic"
+    assert prediction.training_data == "public-data-informed synthetic scenarios"
     assert len(prediction.explanation) == 3
 
 
 def test_more_outgoings_increase_baseline_risk() -> None:
-    artifact_path = Path(__file__).parents[3] / "ml" / "artifacts" / "baseline-logistic-v1.json"
+    artifact_path = Path(__file__).parents[3] / "ml" / "artifacts" / "baseline-logistic-v2-ons-calibrated.json"
     model = json.loads(artifact_path.read_text(encoding="utf-8"))
     safe = dict.fromkeys(model["feature_names"], 0.0)
     safe["balance_buffer_gap_ratio"] = 2.0
