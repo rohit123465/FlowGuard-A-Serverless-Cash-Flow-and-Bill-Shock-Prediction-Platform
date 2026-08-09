@@ -185,6 +185,11 @@ input:focus,select:focus { border-color:var(--green); box-shadow:0 0 0 3px #1b74
 .risk-card.medium { border-left-color:#d49a3e; }.risk-card.high { border-left-color:#c75948; }
 .risk-card h2 { margin:.35rem 0; font-size:1.55rem; }.risk-level { text-transform:uppercase; font-weight:800; font-size:.68rem; letter-spacing:.08em; }
 .risk-card ul { margin:.55rem 0 0; padding-left:1.1rem; color:#526c67; }.risk-card li { margin:.35rem 0; }
+.risk-meaning { color:#607773; font-size:.78rem; line-height:1.45; margin:.75rem 0 0; max-width:30rem; }
+.risk-guidance { grid-column:1/-1; border-radius:12px; background:#edf6f1; padding:1rem 1.1rem; }
+.risk-card.medium .risk-guidance { background:#fff6e6; }.risk-card.high .risk-guidance { background:#fff0ed; }
+.risk-guidance>p { color:#607773; font-size:.78rem; margin:.35rem 0 .55rem; }
+.risk-guidance ol { margin:0; padding-left:1.25rem; color:#314e48; font-size:.82rem; }.risk-guidance li { padding-left:.2rem; }
 .risk-card footer { grid-column:1/-1; border-top:1px solid var(--line); padding-top:.75rem; color:#6a7e7a; font-size:.72rem; }.risk-card footer p { margin:.3rem 0 0; }
 .negative { color:#b34b3d; }
 .month-picker.standalone { width:180px; }
